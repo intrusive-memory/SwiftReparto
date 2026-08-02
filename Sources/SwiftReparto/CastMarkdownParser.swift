@@ -57,10 +57,13 @@ import Foundation
 /// `type: cast` with `cast: []` is a *success* carrying an empty roster — see
 /// `CastParseError.swift` for why that distinction is load-bearing.
 ///
-/// ## Emission lives elsewhere
+/// ## Emission lives in `CastMarkdownGenerator.swift`
 ///
-/// `generate(document:)` and `write(document:to:)` are Sortie 10's. This type
-/// only reads.
+/// `generate(document:)` and `write(document:to:)` are declared on this type —
+/// RQ-10 puts all four entry points on one value — but they are implemented in
+/// an extension in `CastMarkdownGenerator.swift`. The split is by direction, not
+/// by type: this file is the reader, that one is the writer, and the writer's
+/// documentation states the inversion it performs on the body split below.
 public struct CastMarkdownParser: Sendable {
 
   /// Create a parser.
