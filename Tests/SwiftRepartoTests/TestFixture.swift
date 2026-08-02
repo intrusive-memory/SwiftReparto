@@ -43,6 +43,36 @@ enum TestFixture: String {
   /// header comment.
   case legacyUnversionedCastMD = "legacy-unversioned-CAST.md"
 
+  /// Sortie 15: `type: cast` present, `cast:` entirely absent.
+  /// Expects ``CastParseError/missingCastKey``.
+  case rejectTypeOnly = "reject-type-only.md"
+
+  /// Sortie 15: `cast:` present with a real member, `type:` entirely absent.
+  /// Expects ``CastParseError/missingTypeCast``.
+  case rejectCastOnly = "reject-cast-only.md"
+
+  /// Sortie 15: well-formed front matter carrying neither `type:` nor
+  /// `cast:` — the arbitrary-prose case RQ-1's dual check exists to reject.
+  /// Expects ``CastParseError/missingTypeCast``.
+  case rejectNeither = "reject-neither.md"
+
+  /// Sortie 15: plain markdown with no YAML front matter at all.
+  /// Expects ``CastParseError/noFrontMatter``.
+  case rejectNoFrontMatter = "reject-no-frontmatter.md"
+
+  /// Sortie 15: front-matter delimiters present, but the enclosed content is
+  /// not valid YAML. Expects ``CastParseError/invalidYAML(_:)``.
+  case rejectMalformedYAML = "reject-malformed-yaml.md"
+
+  /// Sortie 15: a well-formed document whose sole cast member has no
+  /// `character` field. Expects ``CastParseError/missingCharacter(index:)``.
+  case rejectMissingCharacter = "reject-missing-character.md"
+
+  /// Sortie 15: an otherwise well-formed document (`type: cast`, a real
+  /// `cast:` array) declaring `schemaVersion: 2` (D-12).
+  /// Expects ``CastParseError/unsupportedSchemaVersion(found:supported:)``.
+  case rejectFutureVersion = "reject-future-version.md"
+
   /// The fixture's location inside the test bundle's resource copy.
   ///
   /// - Throws: If the fixture is missing from the bundle — which would mean
