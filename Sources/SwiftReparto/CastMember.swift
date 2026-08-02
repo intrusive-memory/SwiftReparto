@@ -350,7 +350,36 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     try container.encodeIfPresent(voicePrompt, forKey: .voicePrompt)
 
     // Always the array form, never the scalar the decoder tolerates (RQ-3).
-    try container.encode(voices, forKey: .voices)
+    // Written through a nested keyed container over the sorted provider keys,
+    // mirroring the extraKeys loop below: a plain `container.encode(voices,
+    // forKey: .voices)` emits in Swift's Dictionary iteration order, which is
+    // seeded per process and not even stable between two dictionaries holding
+    // the same keys within one process, and RQ-11's SHA-256 gate would fail
+    // intermittently otherwise. Per-provider path arrays are encoded as-is —
+    // that order is data, not incidental, and only the provider keys are
+    // sorted. `voices.isEmpty` still opens and closes the nested container, so
+    // a member with no voices still emits `voices: {}` unchanged.
+    //
+    // The `do` block is load-bearing, not stylistic: Yams' `_ReferencingEncoder`
+    // (the object backing a `nestedContainer`) writes itself into the parent
+    // mapping only when it is deallocated, not when `nestedContainer(forKey:)`
+    // is called. Left inline in this function's top-level scope,
+    // `voicesContainer` would stay alive — and `voices` therefore stay
+    // unwritten in the parent mapping — until `encode(to:)` returns, which is
+    // after the `extraKeys` block below runs and writes its own keys first.
+    // That reordered `voices` to the end, after every extra key, which is
+    // exactly the byte instability this fix exists to remove. Scoping the
+    // container to this block forces it to deallocate — and therefore commit
+    // `voices` into the parent mapping in this position — before `extraKeys`
+    // gets its turn.
+    do {
+      var voicesContainer = container.nestedContainer(
+        keyedBy: DynamicCodingKey.self, forKey: .voices)
+      for provider in voices.keys.sorted() {
+        guard let paths = voices[provider] else { continue }
+        try voicesContainer.encode(paths, forKey: DynamicCodingKey(stringValue: provider))
+      }
+    }
 
     // Re-emit preserved undeclared keys so round-trips are lossless (RQ-4).
     // Sorted, because dictionary iteration order is not stable across runs and
