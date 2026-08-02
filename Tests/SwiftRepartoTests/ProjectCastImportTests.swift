@@ -8,18 +8,19 @@
 // particular — must be reachable through the same door a real consumer has
 // (D-8), exactly like `MergeTests.swift` and `CastMemberPublicAPITests.swift`.
 //
-// ## The fixture is vendored, and no test reads outside this repository
+// ## The fixture is vendored, and no test reads outside this package
 //
-// `Tests/Fixtures/confessions-PROJECT.md` is a trimmed but faithful excerpt of
-// a real `PROJECT.md`: `type: project`, three characters with the **scalar**
-// `voices` form, a ~400-character undeclared `bio:`, and the project-level
-// `title` / `tts` / `episodes_index` keys that the exclusion test below exists
-// to prove never reach a cast document.
+// `Tests/SwiftRepartoTests/Fixtures/confessions-PROJECT.md` is a trimmed but
+// faithful excerpt of a real `PROJECT.md`: `type: project`, three characters
+// with the **scalar** `voices` form, a ~400-character undeclared `bio:`, and
+// the project-level `title` / `tts` / `episodes_index` keys that the exclusion
+// test below exists to prove never reach a cast document.
 //
-// It is reached through `#filePath`, which the compiler resolves at build time,
-// so there is no absolute path spelled anywhere in this file and no test that
-// depends on a checkout living at any particular location. That is also why the
-// test target needs no `resources:` declaration for it.
+// It is reached through `Bundle.module` (Sortie 13's `TestFixture` helper),
+// which resolves against `Package.swift`'s `resources: [.copy("Fixtures")]`
+// declaration on the test target rather than against a source-tree path, so
+// there is no absolute path spelled anywhere in this file and the fixture
+// resolves identically on macOS and under the iOS Simulator destination.
 //
 // ## `PROJECT.md` is never written (D-13)
 //
@@ -39,13 +40,10 @@ final class ProjectCastImportTests: XCTestCase {
 
   // MARK: - Fixture access
 
-  /// The vendored `PROJECT.md` excerpt, located relative to this source file.
+  /// The vendored `PROJECT.md` excerpt, reached through `Bundle.module`
+  /// (Sortie 13).
   private var confessionsProjectURL: URL {
-    URL(filePath: #filePath)  // Tests/SwiftRepartoTests/ProjectCastImportTests.swift
-      .deletingLastPathComponent()  // Tests/SwiftRepartoTests
-      .deletingLastPathComponent()  // Tests
-      .appending(path: "Fixtures")
-      .appending(path: "confessions-PROJECT.md")
+    get throws { try TestFixture.confessionsProjectMD.url() }
   }
 
   /// A fresh, empty directory under the system temporary directory, removed

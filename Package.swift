@@ -79,6 +79,15 @@ let package = Package(
         "SwiftReparto",
         "RepartoCLICore",
       ],
+      // `.copy`, never `.process` (Sortie 13). The fixtures under `Fixtures/`
+      // are the SHA-256 anchors for WU-4's acceptance gates, and a resource
+      // rule entitled to transform a file — re-encoding it, stripping a BOM,
+      // normalizing line endings — would launder away exactly the bytes under
+      // test. `.copy` preserves the directory (and every fixture's bytes)
+      // verbatim inside the test bundle, reachable through `Bundle.module`.
+      resources: [
+        .copy("Fixtures")
+      ],
       swiftSettings: [
         .enableUpcomingFeature("StrictConcurrency")
       ]
