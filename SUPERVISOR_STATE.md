@@ -83,11 +83,11 @@ iteration: 1
 
 ### WU-3 Parse, Serialize, Import
 - Work unit state: **RUNNING** — gate opened, WU-2 COMPLETED (layer 1 → 2)
-- Current sortie: 8 of 5 (IDs: 8, 9, 10, 11, 12)
+- Current sortie: **8a** of 6 (IDs: 8 ✅, **8a — inserted**, 9, 10, 11, 12)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: opus
-- Complexity score: 21
+- Model: sonnet
+- Complexity score: 11
 - Attempt: 1 of 3
 - Notes: Sortie 8 owns the encoder configuration that determines whether RQ-11's SHA-256 gate is stable, and pins the undocumented Yams resolver behavior (AR-2). It also inherits the lint cleanup Sortie 3 deferred. Parallel Group 1 (Sorties 11 + 12) opens after Sortie 10.
 
@@ -128,7 +128,8 @@ iteration: 1
 | WU-2 | 5a | COMPLETED | 1/3 | sonnet | 11 | a204b94ef8cad514e | 2026-08-02T03:25Z |
 | WU-2 | 6 | COMPLETED | 1/3 | opus | 23 | aeda1eca6f7375152 | 2026-08-02T03:45Z |
 | WU-2 | 7 | COMPLETED | 1/3 | opus | 19 | af6eb3733f856cec7 | 2026-08-02T04:10Z |
-| WU-3 | 8 | DISPATCHED | 1/3 | opus | 21 | (pending) | 2026-08-02T04:40Z |
+| WU-3 | 8 | COMPLETED | 1/3 | opus | 21 | aeacd0690c9fdba36 | 2026-08-02T04:40Z |
+| WU-3 | 8a | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T05:15Z |
 
 ---
 
@@ -146,6 +147,11 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T05:15Z | WU-3 | 8 | **Sortie 8 COMPLETED** (criterion 8 partial — see AR-2 escalation) | Commit `e2c0ffc`. 11 of 12 criteria fully met and re-verified: exactly one `import Yams` line, `width = -1`, `sortKeys = false`, no encoder stored on a `Sendable` type, extras lexicographic, 400-char prose on one line, 25-iteration byte-identical encoding. **84 tests green on both destinations.** Directive F closed: `PackageSmokeTests.swift` deleted and `lint.yml` now runs one strict step over `Sources Tests` with the advisory step removed. |
+| 2026-08-02T05:15Z | WU-3 | 8 | **Directive C answered: Yams appends, it does not reorder** | `_Encoder.container(keyedBy:)` reuses an existing mapping node (`Encoder.swift:75-85`) and `Node.Mapping` preserves insertion order, so `CastMember`'s `DynamicCodingKey` container lands after its `CodingKeys` container. **`CastMember.swift` needed no change** — the two-container question raised in Sortie 6 is closed in favor of the existing implementation. |
+| 2026-08-02T05:15Z | WU-3 | 8a | **D-SUP-8: Sortie 8a inserted — nested extras are not byte-stable across processes, which breaks RQ-11's SHA-256 gate** | Confirmed by the supervisor reading `AnyCodable.encode(to:)`: it decodes to `[String: AnyCodable]` and re-encodes that dictionary, and **Swift `Dictionary` encoding order is seeded per process**. Within one process it is stable (Sortie 8's 25-iteration test proves it), so nothing red today. Across two invocations it is not. **D-3 makes this the expected case, not a hypothetical** — `appearance:` is precisely a nested mapping that must survive through `extraKeys`. Left unfixed, Sortie 14's SHA-256 gate flakes intermittently, and an intermittent hash failure reads as a corruption bug rather than an ordering bug. `AnyCodable` canonicalizes to JSON with `.sortedKeys` internally, which saves the stored *value* but not the emitted YAML key order at nested levels. Fix belongs in `AnyCodable.encode(to:)`, which the supervisor is unfreezing for this sortie only. |
+| 2026-08-02T05:15Z | WU-3 | 8 | Encoder addition accepted: `allowUnicode = true` | Beyond the plan's brief. Yams defaults it `false`, which emits `José` as `Jos\xE9`. `CAST.md` is hand-edited and character names are exactly where non-ASCII appears. Round-trip fidelity is identical either way; legibility is not. Kept. |
+| 2026-08-02T05:15Z | WU-4 | 13 | **Two more fixture constraints (six total now)** | (5) `cast:` block sequences emit at **column 0**, not indented — any front-matter scanner assuming top-level keys are the only column-0 lines is wrong. (6) Multi-line strings emit **double-quoted with `\n\` continuations**, not as a literal `\|` block; `width = -1` does not suppress the continuation breaks. A fixture with a multi-line `bio:` will look ugly but round-trips correctly. |
 | 2026-08-02T04:40Z | WU-2 | 7 | **Sortie 7 COMPLETED — WU-2 CLOSED** | Commit `e604759`, 949 insertions across 5 files. All 11 criteria re-verified. 73 tests green on both destinations. |
 | 2026-08-02T04:40Z | — | — | **GATE: layer 1 → layer 2.** WU-3 set to RUNNING, Sortie 8 DISPATCHED | WU-2's four sorties all COMPLETED and independently verified. |
 | 2026-08-02T04:40Z | WU-2 | 7 | **Interface decision inherited by the next 14 sorties: the unversioned sentinel is the integer `0`**, exposed as `CastSchemaVersion.unversioned` with the predicate `CastDocument.isUnversioned` | Chosen over `Optional<Int>` or a dedicated case because the newer-than check stays a plain `<=` on `Int` (`unversioned 0 < current 1 < 2` under ordinary integer ordering), because `current` and `unsupportedSchemaVersion(found:supported:)` are both spec'd as `Int` so a wrapper would force conversions at every boundary, and because a scheme defined as starting at 1 can never mint a real `0`. A document literally writing `schemaVersion: 0` is treated as legacy — harmless, since both paths stamp `1` on the next emit. |
