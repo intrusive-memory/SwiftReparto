@@ -57,19 +57,27 @@ iteration: 1
 
 ### WU-1 Repository Buildout
 - Work unit state: RUNNING
-- Current sortie: 1a of 5 (IDs: 1 ✅, 1a, 2, 3, 4)
+- Current sortie: 2 of 5 (IDs: 1 ✅, 1a ✅, 2, 3, 4)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: opus
-- Complexity score: 19
+- Model: sonnet
+- Complexity score: 11
 - Attempt: 1 of 3
-- Last verified: **Sortie 1 COMPLETED** — all 10 applicable exit criteria re-verified by the supervisor independently of the agent's report (git toplevel is the package; `main` with zero commits; `swift-tools-version: 6.2` + `.macOS(.v26)`/`.iOS(.v26)` + `swiftLanguageModes: [.v6]`; `StrictConcurrency` on all 4 targets; `Package.resolved` has exactly 2 pins — `yams` 6.2.2, `swift-argument-parser` 1.8.2; `intrusive-memory`/`sibling` greps both 0; no `@preconcurrency`/`@unchecked Sendable` in `Sources/`; no `import Yams` in `Sources/`; all 5 expected source files present).
-- Notes: **AR-1 did not fire.** Yams 6.2.2 builds and round-trips clean under this floor on both destinations. D-1 stands, no workaround applied. Sortie 1 left the tree dirty and uncommitted as instructed.
+- Last verified: **Sortie 1a COMPLETED** — all 7 exit criteria re-verified by the supervisor independently of the agent's report (commit `5c5da3d` is the sole commit; `git status --porcelain` empty; both forbidden greps return 0; `IOS_DESTINATION` defined once at line 44 as `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`; `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES` pinned; all nine targets present — build, test, test-ios, release, install, resolve, clean, format, help; `bin` ignored; `Package.resolved` tracked; 13 files tracked, nothing from `.build/` or `bin/`).
+- Notes: Repo now has its build interface and its recovery point. Every later exit criterion phrased as a `make` target has something real to call.
 
 #### Sortie 1 — closed
 - Sortie state: COMPLETED
 - Model: opus / score 21 / attempt 1 of 3
 - Deviation accepted: built via raw `xcodebuild` rather than XcodeBuildMCP (see D-SUP-2).
+
+#### Sortie 1a — closed
+- Sortie state: COMPLETED
+- Model: opus / score 19 / attempt 1 of 3
+- Commit: `5c5da3d` — `feat: initial package scaffold, build interface, and license`
+- Carried forward: `release`/`install` locate the built binary by globbing `DerivedData/SwiftReparto-*/Build/Products/<Config>` (newest dir wins, `-x` check before copy) because `xcodebuild -showBuildSettings` emits nothing for SPM package schemes here. **If Sortie 3's `release.yml` runs `xcodebuild` with a non-default `-derivedDataPath`, both targets break.** Sortie 3 must either leave DerivedData at its default or fix these two targets.
+- Carried forward: `.gitignore` uses `/bin/`, not the plan's `./bin/` — git does not honor a leading `./` in ignore patterns, and `/bin/` is what makes `git check-ignore -q bin` pass. The plan text is wrong here, harmlessly.
+- Carried forward: benign `xcodebuild` noise on every package-scheme invocation (`IDERunDestination: Supported platforms … is empty`, `IDELogStore: Failed to move log store`). Neither affects exit status. Expect them in CI logs; do not chase them.
 
 ### WU-2 Core Model
 - Work unit state: NOT_STARTED
@@ -113,7 +121,8 @@ iteration: 1
 | Work Unit | Sortie | Sortie State | Attempt | Model | Complexity Score | Task ID | Dispatched At |
 |-----------|--------|-------------|---------|-------|-----------------|---------|---------------|
 | WU-1 | 1 | COMPLETED | 1/3 | opus | 21 | a9c37ce6e07657bdb | 2026-08-02T01:24:14Z |
-| WU-1 | 1a | DISPATCHED | 1/3 | opus | 19 | a7c6f732dbc35f2e1 | 2026-08-02T01:35Z |
+| WU-1 | 1a | COMPLETED | 1/3 | opus | 19 | a7c6f732dbc35f2e1 | 2026-08-02T01:35Z |
+| WU-1 | 2 | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T01:48Z |
 
 ---
 
@@ -129,6 +138,10 @@ iteration: 1
 | 2026-08-02T01:35Z | WU-1 | 1 | **Sortie 1 COMPLETED** — AR-1 cleared | Yams 6.2.2 (tools 5.7, vendored C target `CYaml`) builds and round-trips clean under tools 6.2 / `.v26` / `swiftLanguageModes: [.v6]` / strict concurrency, on macOS and iOS Simulator. SwiftPM compiled Yams at its own `arm64-apple-macos12.0` floor while our targets compiled at `arm64-apple-macos26.0` — the dependency never has to satisfy our floor, which is exactly why the probe passed. **D-1 stands.** None of the three forbidden workarounds was applied. All exit criteria re-verified by the supervisor. |
 | 2026-08-02T01:35Z | WU-1 | 1 | **D-SUP-2: raw `xcodebuild` accepted in place of XcodeBuildMCP** | XcodeBuildMCP is **not connected in this session** — the supervisor independently confirmed no XcodeBuild tools exist in the deferred-tool roster. The plan mandates XcodeBuildMCP for Sortie 1 only, because Sortie 1 predates the Makefile. The agent used raw `xcodebuild` and correctly did **not** fall back to the actually-forbidden `swift build`/`swift test`. From Sortie 1a onward every build goes through `make`, which shells to `xcodebuild` anyway — so this deviation is confined to Sortie 1 and leaves no residue. Artifacts on disk are identical either way. |
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
+| 2026-08-02T01:48Z | WU-1 | 1a | **Sortie 1a COMPLETED** | Commit `5c5da3d`. All 7 exit criteria re-verified by the supervisor. Build interface established; `IOS_DESTINATION` defined once per D-SUP-3. |
+| 2026-08-02T01:48Z | — | — | **Plan defect recorded (for the brief): two Sortie 1a exit criteria are blind to intent** | `grep -cE 'swift (build\|test)' Makefile` and `grep -c 'OS=latest' Makefile` scan the whole file, comments included. The agent's first draft failed both — not in any recipe, but in header comments *explaining that those strings are banned*. It reworded the comments to pass. The criteria are therefore satisfiable only by a Makefile that cannot document its own prohibitions in the obvious words. Harmless here, but any later sortie adding prose to the Makefile must re-run both greps. Worth tightening to a recipe-only match in a future plan revision. |
+| 2026-08-02T01:48Z | — | — | **D-SUP-4: the supervisor commits `SUPERVISOR_STATE.md` before each dispatch** | Sortie 1a's commit tracked `SUPERVISOR_STATE.md`, so every supervisor state write now dirties the working tree. Left alone, a later sortie committing with a broad `git add` would sweep a half-written state file into its commit, and any sortie gated on a clean tree would fail through no fault of its own. The supervisor therefore commits its own state file as bookkeeping immediately before dispatching, so every sortie starts from a clean tree. These commits touch `SUPERVISOR_STATE.md` only. |
+| 2026-08-02T01:48Z | WU-1 | 2 | Model: **sonnet** (not opus) | Complexity score 11 = task complexity 5 (8 surgical edits, ~20–30 turns, 2 files) + ambiguity 0 (every exit criterion is a grep; the plan names exact RQ ids and line numbers) + foundation 5 (19 dependents) + risk 1 (prose editing, no code) + type 0. **The Force-Opus override was evaluated and deliberately not applied**: it requires the sortie to establish *core architectural patterns*, and amending a requirements document establishes no pattern any later sortie copies — it only removes a contradiction. Sorties 1 and 1a earned opus because they set the manifest and build interface every later gate greps; this one does not. Failure is fully grep-detectable, and a retry escalates to opus under the standard BACKOFF rule. |
 | 2026-08-02T01:35Z | — | — | **Supervisor preflight error, corrected** | The preflight runtime list was produced with a truncating `grep -i iOS \| tail -5` and wrongly reported that `OS=26.1` was not installed. Full list is 18.4, 18.5, 26.0, 26.1, 26.3, 26.5, 27.0 — 26.0 and 26.1 **are** installed. Caught by the Sortie 1 agent. The user had already updated the global instruction from 26.1 → 26.5 on the strength of the bad finding; that edit is independently correct per D-SUP-3, but it was made for the wrong reason and the user has been told. |
 
 ---
