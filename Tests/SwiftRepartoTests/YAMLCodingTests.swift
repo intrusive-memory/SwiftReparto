@@ -26,6 +26,12 @@
 // "Task 7 / AR-2" own that narrowing end to end — the tokens it must convert,
 // the six spellings it must leave alone, the quoted forms it must not touch,
 // and the fact that it reaches every depth.
+//
+// Sortie 9a finished that commitment for *numbers*. The tests under "Sortie 9a"
+// own the rule that a plain scalar becomes a number only when doing so is
+// provably lossless in spelling — so `0755` is the string `"0755"` rather than
+// the integer 493, and no floating-point spelling is parsed as a number at all,
+// while `180` is still the integer 180 and still emits bare.
 
 import Foundation
 import XCTest
@@ -582,6 +588,293 @@ final class YAMLCodingTests: XCTestCase {
         try decodeYAML(CastMember.self, from: reEmitted), member,
         "double-quoted '\(token)' did not round-trip. Emitted:\n\(reEmitted)")
     }
+  }
+
+  // MARK: - Sortie 9a: the YAML 1.1 numeric trap
+
+  /// Every YAML 1.1 / Yams numeric extension, under an *undeclared* key, is a
+  /// `String` carrying its original spelling.
+  ///
+  /// ## The rule these rows encode
+  ///
+  /// **A plain scalar is decoded as a number only when doing so is provably
+  /// lossless in spelling.** For an integer that reduces to
+  /// `String(intValue) == originalSpelling`; anything else stays a `String`.
+  /// That is stronger than YAML 1.2 core on purpose: strict 1.2 core would read
+  /// `0755` as decimal `755`, which is still not the characters the author
+  /// wrote, and RQ-4 asks for verbatim.
+  ///
+  /// ## What each row was doing before Sortie 9a
+  ///
+  /// Measured, under an undeclared key, on the commit before this one:
+  ///
+  ///     12:34   -> Int 754    re-emitted as `754`
+  ///     1:00:00 -> Int 3600   re-emitted as `3600`
+  ///     0755    -> Int 493    re-emitted as `493`
+  ///     0b1011  -> Int 11     re-emitted as `11`
+  ///     0o17    -> Int 15     re-emitted as `15`
+  ///     0x1f    -> Int 31     re-emitted as `31`
+  ///     1_000   -> Int 1000   re-emitted as `1000`
+  ///
+  /// `0755` was the worst of them: a silent *value* mutation, not merely a
+  /// re-spelling, because YAML 1.2 core reads those same characters as decimal
+  /// 755 while Yams' YAML 1.1 rules read octal 493.
+  ///
+  /// **A failure here means the narrowing pass stopped working, not that the
+  /// expectation is stale.** In particular, restoring the old behavior would
+  /// mean a hand-written `code: 0755` in a cast file silently becomes `493`.
+  func testYAML11NumericExtensionsUnderAnUnknownKeyStayStrings() throws {
+    let tokens = [
+      // Sexagesimal — not a number in YAML 1.2 core at all.
+      "12:34", "1:00:00",
+      // Bare-leading-zero octal — the silent value mutation.
+      "0755", "07", "00",
+      // Yams' radix prefixes. `0b` is not YAML 1.2 core; `0o` and `0x` are,
+      // but neither spelling is reproducible from the parsed value.
+      "0b1011", "0o17", "0x1f",
+      // Digit separators, and signs/zeroes that do not render back identically.
+      "1_000", "+5", "-0",
+    ]
+
+    for token in tokens {
+      let member = try decodeMemberWithMood(token)
+      let captured = try XCTUnwrap(member[extra: "mood"], "`mood` was not captured for '\(token)'")
+
+      XCTAssertEqual(
+        try captured.decode(String.self), token,
+        "'\(token)' was not captured as the String '\(token)'")
+      XCTAssertNil(
+        try? captured.decode(Int.self),
+        "'\(token)' was captured as an Int — the YAML 1.2 core narrowing pass missed it")
+
+      // The spelling, not merely the meaning, survives re-emission.
+      let reEmitted = try encodeYAML(member)
+      let reDecoded = try decodeYAML(CastMember.self, from: reEmitted)
+
+      XCTAssertEqual(
+        try XCTUnwrap(reDecoded[extra: "mood"]).decode(String.self), token,
+        "'\(token)' changed on re-emission. Emitted:\n\(reEmitted)")
+      XCTAssertEqual(reDecoded, member, "'\(token)' did not round-trip. Emitted:\n\(reEmitted)")
+      XCTAssertTrue(
+        reEmitted.contains("mood: '\(token)'"),
+        "'\(token)' did not re-emit carrying its original characters. Emitted:\n\(reEmitted)")
+    }
+  }
+
+  /// The single most important row, called out on its own: `0755` is no longer
+  /// `493`, and its four characters come back out intact.
+  ///
+  /// This is a value corruption, not a formatting nit, and it deserves a test
+  /// whose failure message says so without the reader decoding a loop.
+  func testOctalLookalikeIsNoLongerSilentlyRenumbered() throws {
+    let member = try decodeMemberWithMood("0755")
+    let captured = try XCTUnwrap(member[extra: "mood"])
+
+    XCTAssertNotEqual(
+      try? captured.decode(Int.self), 493,
+      "`mood: 0755` was read as octal 493 — a silent value mutation of the author's data")
+    XCTAssertEqual(try captured.decode(String.self), "0755")
+
+    let reEmitted = try encodeYAML(member)
+    XCTAssertTrue(
+      reEmitted.contains("0755"),
+      "the characters `0755` did not survive re-emission. Emitted:\n\(reEmitted)")
+    XCTAssertFalse(
+      reEmitted.contains("493"),
+      "`0755` re-emitted as `493`. Emitted:\n\(reEmitted)")
+  }
+
+  /// A genuinely numeric scalar still decodes as an `Int` and still re-emits
+  /// *bare*.
+  ///
+  /// The narrowing pass must not turn every digit in the file into a string.
+  /// `String(180) == "180"`, so decoding it as a number is provably lossless
+  /// and it is left alone — which also means it goes back out unquoted, exactly
+  /// as the author wrote it. If this goes red alongside
+  /// ``testYAML11NumericExtensionsUnderAnUnknownKeyStayStrings`` staying green,
+  /// the lossless test has been inverted or dropped.
+  func testLosslessIntegersStillDecodeAsIntAndReEmitBare() throws {
+    for (token, expected) in [("180", 180), ("-5", -5), ("0", 0), ("1000", 1000)] {
+      let member = try decodeMemberWithMood(token)
+      let captured = try XCTUnwrap(member[extra: "mood"], "`mood` was not captured for '\(token)'")
+
+      XCTAssertEqual(
+        try captured.decode(Int.self), expected,
+        "'\(token)' is a lossless integer spelling and stopped decoding as an Int")
+
+      let reEmitted = try encodeYAML(member)
+      XCTAssertTrue(
+        reEmitted.contains("mood: \(token)\n") || reEmitted.hasSuffix("mood: \(token)"),
+        "'\(token)' did not re-emit bare — it was quoted. Emitted:\n\(reEmitted)")
+      XCTAssertFalse(
+        reEmitted.contains("mood: '\(token)'"),
+        "'\(token)' was quoted on re-emission. Emitted:\n\(reEmitted)")
+      XCTAssertEqual(
+        try decodeYAML(CastMember.self, from: reEmitted), member,
+        "'\(token)' did not round-trip. Emitted:\n\(reEmitted)")
+    }
+  }
+
+  /// Every floating-point spelling, under an undeclared key, is a `String`.
+  ///
+  /// ## Why the lossless test is never satisfied by a float
+  ///
+  /// This is a measurement, not a policy. Before Sortie 9a, under an undeclared
+  /// key:
+  ///
+  ///     1.0   -> Double 1.0  re-emitted as `1`       (JSON collapse to Int)
+  ///     1.    -> Double 1.0  re-emitted as `1`
+  ///     1e3   -> Double 1e3  re-emitted as `1000`
+  ///     1.5   -> Double 1.5  re-emitted as `1.5e+0`  (Yams' `%.*g` rendering)
+  ///     .5    -> Double 0.5  re-emitted as `5e-1`
+  ///     .inf  -> THREW. `JSONEncoder` refuses a non-finite Double and
+  ///     -.inf -> THREW. `AnyCodable.init(from:)` does not guard that `try`,
+  ///     .nan  -> THREW. so a legal YAML document was simply unreadable.
+  ///     1e400 -> THREW (overflows to `inf` on the way into JSON).
+  ///
+  /// Two independent renderers stand between a parsed `Double` and the file —
+  /// `AnyCodable`'s JSON store, which probes `Int` before `Double` on the way
+  /// out and so collapses every integer-valued double, and Yams'
+  /// `formattedStringForCodable`, which writes scientific notation. Neither
+  /// reproduces a source spelling, so no float passes the lossless test and all
+  /// of them stay strings. The three throwing cases become ordinary strings as
+  /// a side effect, which is a strict improvement: those documents now decode.
+  func testFloatingPointScalarsUnderAnUnknownKeyStayStrings() throws {
+    let tokens = [
+      "1.0", "1.", "1.5", "1.50", ".5", "0.0", "1e3", "1e400",
+      ".inf", "-.inf", ".nan",
+    ]
+
+    for token in tokens {
+      let member = try decodeMemberWithMood(token)
+      let captured = try XCTUnwrap(member[extra: "mood"], "`mood` was not captured for '\(token)'")
+
+      XCTAssertEqual(
+        try captured.decode(String.self), token,
+        "'\(token)' was not captured as the String '\(token)'")
+      XCTAssertNil(
+        try? captured.decode(Double.self),
+        "'\(token)' was captured as a Double — no float spelling survives this pipeline")
+
+      let reEmitted = try encodeYAML(member)
+      XCTAssertTrue(
+        reEmitted.contains("mood: '\(token)'"),
+        "'\(token)' did not re-emit carrying its original characters. Emitted:\n\(reEmitted)")
+      XCTAssertEqual(
+        try decodeYAML(CastMember.self, from: reEmitted), member,
+        "'\(token)' did not round-trip. Emitted:\n\(reEmitted)")
+    }
+  }
+
+  /// The narrowing reaches a nested mapping and a sequence element.
+  ///
+  /// A pass that only inspected the document's top-level mapping values would
+  /// leave `codes.mode` as `493` and `codes.list[0]` as `754`, and every other
+  /// numeric test in this file would still pass.
+  ///
+  /// It also guards Sortie 8a: the nested mapping must still emit with its keys
+  /// sorted at every depth after the walk has rewritten the node tree.
+  func testNumericNarrowingReachesNestedMappingsAndSequences() throws {
+    let member = try decodeYAML(
+      CastMember.self,
+      from: """
+        character: THE PRACTITIONER
+        codes:
+          mode: 0755
+          nested:
+            deeper:
+              mask: 0o17
+          list:
+            - 12:34
+            - "0755"
+            - 180
+        """)
+
+    let codes = try XCTUnwrap(member[extra: "codes"], "`codes` was not captured")
+    let decoded = try codes.decode([String: AnyCodable].self)
+
+    XCTAssertEqual(
+      try XCTUnwrap(decoded["mode"]).decode(String.self), "0755",
+      "an octal look-alike one level down was not narrowed")
+
+    let nested = try XCTUnwrap(decoded["nested"]).decode([String: [String: AnyCodable]].self)
+    XCTAssertEqual(
+      try XCTUnwrap(nested["deeper"]?["mask"]).decode(String.self), "0o17",
+      "a numeric look-alike three levels down was not narrowed")
+
+    let list = try XCTUnwrap(decoded["list"]).decode([AnyCodable].self)
+    XCTAssertEqual(list.count, 3)
+    XCTAssertEqual(
+      try list[0].decode(String.self), "12:34",
+      "a sexagesimal inside a sequence was not narrowed")
+    XCTAssertEqual(
+      try list[1].decode(String.self), "0755",
+      "an already-quoted sequence element did not stay a String")
+    XCTAssertEqual(
+      try list[2].decode(Int.self), 180,
+      "a lossless integer inside a sequence stopped being an Int")
+
+    // Round-trips, and Sortie 8a's every-depth key sorting still holds.
+    let reEmitted = try encodeYAML(member)
+    XCTAssertEqual(
+      try decodeYAML(CastMember.self, from: reEmitted), member,
+      "the nested extra did not round-trip. Emitted:\n\(reEmitted)")
+    XCTAssertEqual(
+      try encodeYAML(try decodeYAML(CastMember.self, from: reEmitted)), reEmitted,
+      "re-emission was not stable. Emitted:\n\(reEmitted)")
+  }
+
+  /// A *declared* `String?` field carrying `0755` is unaffected.
+  ///
+  /// Declared fields were never exposed to the numeric trap — `String.construct`
+  /// hands back `scalar.string` verbatim regardless of style or tag
+  /// (`Constructor.swift:387`) — and the narrowing pass must not have changed
+  /// that in either direction. This is the control for
+  /// ``testYAML11NumericExtensionsUnderAnUnknownKeyStayStrings``.
+  func testDeclaredStringFieldCarryingAnOctalLookalikeIsUnaffected() throws {
+    let member = try decodeYAML(
+      CastMember.self,
+      from: """
+        character: THE PRACTITIONER
+        actor: 0755
+        language: 12:34
+        """)
+
+    XCTAssertEqual(member.actor, "0755", "a declared `String?` field lost its verbatim spelling")
+    XCTAssertEqual(member.language, "12:34", "a declared `String?` field was read sexagesimally")
+
+    let reEmitted = try encodeYAML(member)
+    XCTAssertEqual(
+      try decodeYAML(CastMember.self, from: reEmitted), member,
+      "a declared field carrying a numeric look-alike did not round-trip. Emitted:\n\(reEmitted)")
+  }
+
+  /// The exact emitted bytes for one member carrying both shapes side by side.
+  ///
+  /// Pinned so the honest limitation in `YAMLCoding.swift` is not merely a
+  /// claim in a comment: the preserved string is quoted and the genuine integer
+  /// is bare, in the same document.
+  func testPreservedStringAndBareIntegerEmitSideBySide() throws {
+    let member = try decodeYAML(
+      CastMember.self,
+      from: """
+        character: THE PRACTITIONER
+        count: 180
+        mood: 0755
+        """)
+
+    let reEmitted = try encodeYAML(member)
+
+    XCTAssertEqual(
+      reEmitted,
+      """
+      character: THE PRACTITIONER
+      voices: {}
+      count: 180
+      mood: '0755'
+
+      """,
+      "the emitted form changed. Emitted:\n\(reEmitted)")
   }
 
   // MARK: - Decode-side behavior the parser layer will meet
