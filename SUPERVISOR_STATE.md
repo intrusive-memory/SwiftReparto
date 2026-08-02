@@ -77,21 +77,19 @@ iteration: 1
 - Carried forward: benign `xcodebuild` noise on every package-scheme invocation (`IDERunDestination: Supported platforms … is empty`, `IDELogStore: Failed to move log store`). Neither affects exit status. Expect them in CI logs; do not chase them.
 
 ### WU-2 Core Model
-- Work unit state: **RUNNING** — gate opened, WU-1 COMPLETED (layer 0 → 1)
-- Current sortie: 7 of 4 (IDs: 5 ✅, 5a ✅, 6 ✅, 7)
+- Work unit state: **COMPLETED** — all 4 sorties done (5, 5a, 6, 7)
+- Sortie state: COMPLETED
+- Last verified: **Sortie 7 COMPLETED** — `grep -r 'fatalError' Sources/SwiftReparto/` returns 0 lines, `public static let current: Int = 1`, `public static let unversioned: Int = 0`, `grep -rE 'schemaVersion.*"[0-9]' Sources/` returns 0, all six `CastParseError` cases present, `CastDocument.CodingKeys` is exactly `type, schemaVersion, cast` with no `body`, zero forbidden annotations. **73 tests green on both destinations.**
+
+### WU-3 Parse, Serialize, Import
+- Work unit state: **RUNNING** — gate opened, WU-2 COMPLETED (layer 1 → 2)
+- Current sortie: 8 of 5 (IDs: 8, 9, 10, 11, 12)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: opus
-- Complexity score: 19
+- Complexity score: 21
 - Attempt: 1 of 3
-- Notes: `Gender` and `CastMember` are in. Sortie 7 closes WU-2 with `CastDocument`, `CastSchemaVersion`, and the error vocabulary.
-
-### WU-3 Parse, Serialize, Import
-- Work unit state: NOT_STARTED
-- Current sortie: 8 of 5 sorties (IDs: 8, 9, 10, 11, 12)
-- Sortie state: PENDING
-- Attempt: 0 of 3
-- Notes: Gated on WU-2 COMPLETED. Parallel Group 1 (Sorties 11 + 12) opens after Sortie 10.
+- Notes: Sortie 8 owns the encoder configuration that determines whether RQ-11's SHA-256 gate is stable, and pins the undocumented Yams resolver behavior (AR-2). It also inherits the lint cleanup Sortie 3 deferred. Parallel Group 1 (Sorties 11 + 12) opens after Sortie 10.
 
 ### WU-4 Acceptance Gates
 - Work unit state: NOT_STARTED
@@ -129,7 +127,8 @@ iteration: 1
 | WU-2 | 5 | COMPLETED | 1/3 | sonnet | 9 | ac1f28a9c6c485642 | 2026-08-02T03:05Z |
 | WU-2 | 5a | COMPLETED | 1/3 | sonnet | 11 | a204b94ef8cad514e | 2026-08-02T03:25Z |
 | WU-2 | 6 | COMPLETED | 1/3 | opus | 23 | aeda1eca6f7375152 | 2026-08-02T03:45Z |
-| WU-2 | 7 | DISPATCHED | 1/3 | opus | 19 | (pending) | 2026-08-02T04:10Z |
+| WU-2 | 7 | COMPLETED | 1/3 | opus | 19 | af6eb3733f856cec7 | 2026-08-02T04:10Z |
+| WU-3 | 8 | DISPATCHED | 1/3 | opus | 21 | (pending) | 2026-08-02T04:40Z |
 
 ---
 
@@ -147,6 +146,12 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T04:40Z | WU-2 | 7 | **Sortie 7 COMPLETED — WU-2 CLOSED** | Commit `e604759`, 949 insertions across 5 files. All 11 criteria re-verified. 73 tests green on both destinations. |
+| 2026-08-02T04:40Z | — | — | **GATE: layer 1 → layer 2.** WU-3 set to RUNNING, Sortie 8 DISPATCHED | WU-2's four sorties all COMPLETED and independently verified. |
+| 2026-08-02T04:40Z | WU-2 | 7 | **Interface decision inherited by the next 14 sorties: the unversioned sentinel is the integer `0`**, exposed as `CastSchemaVersion.unversioned` with the predicate `CastDocument.isUnversioned` | Chosen over `Optional<Int>` or a dedicated case because the newer-than check stays a plain `<=` on `Int` (`unversioned 0 < current 1 < 2` under ordinary integer ordering), because `current` and `unsupportedSchemaVersion(found:supported:)` are both spec'd as `Int` so a wrapper would force conversions at every boundary, and because a scheme defined as starting at 1 can never mint a real `0`. A document literally writing `schemaVersion: 0` is treated as legacy — harmless, since both paths stamp `1` on the next emit. |
+| 2026-08-02T04:40Z | WU-3 | 9 | **Trap flagged for Sortie 9: `CastDocument.init(from:)` throws `CastParseError` values directly, not `DecodingError`** | It emits `.unsupportedSchemaVersion`, `.missingTypeCast`, `.missingCastKey`, and `.missingCharacter(index:)`. **A blanket `catch { throw .invalidYAML(...) }` around the decode call would swallow four of the six cases and turn Sortie 9's own exit criteria into false passes.** Sortie 9 must let `CastParseError` through before mapping decode failures; its remaining work is only `.noFrontMatter` and `.invalidYAML`. Element-wise `cast:` decoding via `nestedUnkeyedContainer` already yields `.missingCharacter(index:)` — Sortie 9 gets it free and must not re-implement it. |
+| 2026-08-02T04:40Z | WU-3 | 9 | **`CastDocument`'s `Codable` conformance is the front matter and only the front matter** | `encode(to:)` writes exactly `type`, `schemaVersion`, `cast` in declaration order and writes `body` nowhere; `init(from:)` sets `body = ""`. **Sortie 9 must assign the byte-exact body onto the decoded document after decoding**; Sortie 10 emits front matter by encoding the document and appending `body` verbatim after the closing delimiter. Consequence, documented on the type: a `CastDocument` round-tripped through a general-purpose `Codable` coder does **not** preserve `body` — RQ-11's identity is defined on the markdown, not on this conformance. |
+| 2026-08-02T04:40Z | WU-4 | 13 | **Two more fixture constraints for Sortie 13** | (1) `schemaVersion` decodes strictly as `Int`, so a legacy document writing `schemaVersion: "1"` quoted produces a `DecodingError.typeMismatch` that Sortie 9 will surface as `.invalidYAML`, not a friendly typed error. Defensible under D-12; leniency deliberately not added, and if it is ever wanted it belongs in exactly one place. (2) **`cast: null` is `.missingCastKey`; `cast: []` throws nothing** — Yams resolves a bare `cast:` with no value to null, so an empty roster must be written `cast: []` in fixtures, never as a valueless key. |
 | 2026-08-02T04:10Z | WU-2 | 6 | **Sortie 6 COMPLETED** | Commit `47d0755`, 806 insertions across 4 files. All 13 criteria re-verified: `var voicePrompt` ×1, zero `struct Appearance`, zero `MergeStrategy`, zero forbidden annotations, `public private(set) var extraKeys` ×1 with no `public var` form, `appearance` absent from `CodingKeys`, 31 tests green on both destinations. Criterion 9 is structurally sound — `CastMemberPublicAPITests.swift:20` is a plain `import SwiftReparto` while `CastMemberCodingTests.swift:23` is `@testable`, so extras reachability is proven through the door a real consumer has. |
 | 2026-08-02T04:10Z | WU-2 | 6 | **Accepted deviation: `CastMember` gets synthesized structural `==`, not SwiftProyecto's name-only `==`** | SwiftProyecto compares `character` alone. The agent let Swift synthesize structural equality and kept `hash(into:)` on `character` only. **Accepted, and it is the right call**: a name-only `==` would make every WU-3 round-trip comparison and Sortie 14's identity gate pass while silently dropping `voicePrompt`, `bio`, or extras — the gates would be vacuous. The `Hashable` contract still holds (structural equality implies same `character`, hence same hash); the hash is merely coarse. **Consumer-visible semantic change**: a `Set<CastMember>` can now hold two members with the same character but different fields, where SwiftProyecto would dedup them. SwiftEchada's eventual migration should be checked against this. |
 | 2026-08-02T04:10Z | WU-3 | 8 | **Carry-forward to Sortie 8: extras are already sorted at the `encode(to:)` layer** | `encode(to:)` iterates `extraKeys.keys.sorted()`, which is where Sortie 8 task 3 says lexicographic ordering must live. **Sortie 8 must set `sortKeys = false` on the YAML encoder and add no second sort**, or it will fight its own model layer. |
