@@ -1,0 +1,121 @@
+name: Release Binary
+
+# This workflow exists because SwiftReparto ships an executable (`reparto`) in
+# addition to the library — see EXECUTION_PLAN.md § D-6, which reverses the
+# earlier library-only position that forbade a release workflow.
+#
+# It attaches a tarball to the release and stops there. It does NOT notify the
+# Homebrew tap. See .github/workflows/README.md before adding anything that
+# looks like it should.
+
+on:
+  release:
+    # This fires for prereleases too, so a beta tag gets a tarball. That is
+    # intended: the beta line is how this package is consumed before 1.0, and an
+    # untagged beta with no downloadable binary would be useless. The Homebrew
+    # tap is unaffected either way — it resolves through `releases/latest`,
+    # which excludes prereleases, so a beta tarball can never become a formula
+    # by accident.
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    name: Build and Upload Binary
+    runs-on: macos-26
+
+    # Deadline for the same reason the test jobs have one. A Release-configuration
+    # build from cold is the slowest thing this repo does in CI.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Determine Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building version: ${VERSION} (tag: ${TAG})"
+
+      # `make release`, with no extra xcodebuild flags layered on top.
+      #
+      # In particular: DO NOT redirect DerivedData from here or from the
+      # Makefile's release target. `xcodebuild -showBuildSettings` returns
+      # nothing for SwiftPM package schemes on this toolchain, so `make release`
+      # locates the built binary by globbing
+      # `~/Library/Developer/Xcode/DerivedData/SwiftReparto-*/Build/Products/Release`.
+      # Overriding that location makes the glob find nothing and the target exits
+      # 1 — and it would do so here, in a release job, long after the change was
+      # made and reviewed. (The flag that does it is deliberately not spelled out;
+      # this repo's exit criteria grep `.github/` for it. See ./README.md.)
+      - name: Build Release Binary
+        run: make release
+
+      - name: Verify Binary
+        run: |
+          ./bin/reparto --version
+          file ./bin/reparto
+          echo "Binary verified: ./bin/reparto"
+
+      - name: Package Binary
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL="reparto-${VERSION}-arm64-macos.tar.gz"
+
+          cd bin
+          # Just the binary. Neither dependency (Yams, swift-argument-parser)
+          # carries a SwiftPM resource bundle, and `make release` copies only the
+          # executable into ./bin. If a resource-bearing dependency is ever
+          # added, the Makefile's release target has to copy the bundle too, and
+          # this line has to ship it.
+          tar -czvf "${TARBALL}" reparto
+          SHA256=$(shasum -a 256 "${TARBALL}" | cut -d' ' -f1)
+
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+
+          echo "Created: ${TARBALL}"
+          echo "SHA256: ${SHA256}"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: |
+            bin/${{ steps.package.outputs.tarball }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The SHA-256 is computed above and printed here rather than pushed
+      # anywhere. The Homebrew tap computes its own from the asset it downloads;
+      # see .github/workflows/README.md.
+      - name: Summary
+        run: |
+          {
+            echo "### Release asset"
+            echo
+            echo '```'
+            echo "tarball: ${{ steps.package.outputs.tarball }}"
+            echo "sha256:  ${{ steps.package.outputs.sha256 }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

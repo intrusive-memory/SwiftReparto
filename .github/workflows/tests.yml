@@ -1,0 +1,67 @@
+name: Tests
+
+# Both jobs below run a `make` target rather than a spelled-out `xcodebuild`.
+# That is deliberate and it is the whole reason the Makefile exists (see its
+# header): the scheme name, the destination strings, the arch pins, and the
+# package-plugin flags are defined exactly once, in the Makefile, and a
+# developer's local run and this gate cannot diverge.
+#
+# SwiftEscribo's iOS job failed on its very first run because the simulator OS
+# was pinned in the workflow *and* in the Makefile, and only the Makefile's copy
+# was ever exercised locally. Do not reintroduce that shape. If a destination
+# stops resolving on the runner image, change `Makefile:44` — never this file.
+
+on:
+  pull_request:
+    branches: [main, development]
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-macos:
+    # This string is a branch-protection context. Changing it silently drops the
+    # gate: protection matches contexts by name, and a renamed job simply never
+    # reports the one protection is waiting for.
+    name: Test on macOS
+    runs-on: macos-26
+
+    # A job with no deadline burns the GitHub Actions default of six hours and
+    # reports nothing. A hang is strictly worse than a failure — a red gate is
+    # information, a wedged gate holds the PR open and says nothing. These bounds
+    # are deadlock detectors, not performance budgets: far above any healthy run,
+    # far below the default. The tests run in seconds; the cold build is the
+    # elapsed time.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Printed so that a build that starts or stops failing can be attributed to
+      # a toolchain bump on the runner image rather than to the source.
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Test
+        run: make test
+
+  test-ios:
+    # Branch-protection context, as above.
+    name: Test on iOS Simulator
+    runs-on: macos-26
+
+    # Longer than the macOS job because this one also boots an iPhone 17
+    # simulator before it can run anything, and a cold first boot on a shared
+    # runner can take minutes of the budget on its own.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # The simulator destination is pinned once, at `Makefile:44`, and is not
+      # restated here. See this file's header.
+      - name: Test
+        run: make test-ios
