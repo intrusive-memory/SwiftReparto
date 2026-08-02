@@ -82,22 +82,20 @@ iteration: 1
 - Last verified: **Sortie 7 COMPLETED** — `grep -r 'fatalError' Sources/SwiftReparto/` returns 0 lines, `public static let current: Int = 1`, `public static let unversioned: Int = 0`, `grep -rE 'schemaVersion.*"[0-9]' Sources/` returns 0, all six `CastParseError` cases present, `CastDocument.CodingKeys` is exactly `type, schemaVersion, cast` with no `body`, zero forbidden annotations. **73 tests green on both destinations.**
 
 ### WU-3 Parse, Serialize, Import
-- Work unit state: **RUNNING** — all 9 plan+inserted sorties done; one cleanup sortie (12a) in flight before the layer gate
-- Current sortie: **12a** of 10 (IDs: 8 ✅, 8a ✅, 8b ✅, 9 ✅, 9a ✅, 10 ✅, 10a ✅, 11 ✅, 12 ✅, **12a — inserted**)
-- Sortie state: DISPATCHED
-- Sortie type: code
-- Model: sonnet
-- Complexity score: 7
-- Attempt: 1 of 3
-- Notes: WU-3's functional work is complete (199 tests green). 12a unifies the two front-matter scanners before the WU-4 gate opens.
+- Work unit state: **COMPLETED** — all 10 sorties done (8, 8a, 8b, 9, 9a, 10, 10a, 11, 12, 12a)
+- Sortie state: COMPLETED
+- Last verified: **Sortie 12a COMPLETED** — one `splitFrontMatter` declaration module-wide, importer's local scanner fully removed (zero hits for `isDelimiterLine`/`ScannedLine`/`scanLine`), zero `String(describing: error)`, **zero test files modified**, nothing became `public`. 199 tests green on both destinations.
 - Notes: Sortie 8 owns the encoder configuration that determines whether RQ-11's SHA-256 gate is stable, and pins the undocumented Yams resolver behavior (AR-2). It also inherits the lint cleanup Sortie 3 deferred. Parallel Group 1 (Sorties 11 + 12) opens after Sortie 10.
 
 ### WU-4 Acceptance Gates
-- Work unit state: NOT_STARTED
-- Current sortie: 13 of 4 sorties (IDs: 13, 14, 15, 16)
-- Sortie state: PENDING
-- Attempt: 0 of 3
-- Notes: Gated on WU-3 COMPLETED. Parallel Group 2 (Sortie 15 fixtures + Sortie 16 script) opens after Sortie 13.
+- Work unit state: **RUNNING** — gate opened, WU-3 COMPLETED (layer 2 → 3)
+- Current sortie: 13 of 4 (IDs: 13, 14, 15, 16)
+- Sortie state: DISPATCHED
+- Sortie type: code
+- Model: sonnet
+- Complexity score: 11
+- Attempt: 1 of 3
+- Notes: Sortie 13 pins the SHA-256 anchors for every WU-4 gate. Parallel Group 2 is **not** being used — see D-SUP-12.
 
 ### WU-5 CLI
 - Work unit state: NOT_STARTED
@@ -138,7 +136,8 @@ iteration: 1
 | WU-3 | 10a | COMPLETED | 1/3 | sonnet | 10 | a5f03f3366226d74a | 2026-08-02T08:20Z |
 | WU-3 | 11 | COMPLETED | 1/3 | sonnet | 12 | af1d16af625e3e00e | 2026-08-02T08:50Z |
 | WU-3 | 12 | COMPLETED | 1/3 | opus | 13 | a0a04d08573c86d7f | 2026-08-02T09:15Z |
-| WU-3 | 12a | DISPATCHED | 1/3 | sonnet | 7 | (pending) | 2026-08-02T09:50Z |
+| WU-3 | 12a | COMPLETED | 1/3 | sonnet | 7 | a3465a17ca5170f07 | 2026-08-02T09:50Z |
+| WU-4 | 13 | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T10:15Z |
 
 ---
 
@@ -156,6 +155,9 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T10:15Z | WU-3 | 12a | **Sortie 12a COMPLETED — WU-3 CLOSED** | Commit `fac64fd`. **191 insertions, 297 deletions** — a net removal, which is what a real deduplication looks like; `ProjectCastImporter.swift` alone went +12/-129. `FrontMatterSplit`, `ScannedLine`, `splitFrontMatter`, `scanLine`, `isDelimiterLine`, and `failureMessage(for:)` moved from `private static` members to module-scope `internal` declarations, mirroring `relativizingPaths(in:to:)`'s own pattern. The importer now runs the identical `Array(content.utf8)` → `splitFrontMatter(bytes)` path as the parser and discards `split.body`, still passing `body: ""` explicitly. **Zero test files modified**, which is the proof that no behavior moved. |
+| 2026-08-02T10:15Z | WU-3 | 12a | Honest finding: the duplication was **latent, not active** | The agent reports the two scanners were behaviorally equivalent for every case the 199 tests exercise — both treat CRLF as one terminator, both reject a lone `\r`, both require an opening delimiter on line 1, both reject `----`. **No divergence existed yet.** The sortie removed a risk rather than fixing a bug: it was one edit to trailing-whitespace tolerance or terminator rules, made in only one copy, away from becoming real — and no WU-4 gate would have caught it, since each path is tested against itself. |
+| 2026-08-02T10:15Z | — | — | **GATE: layer 2 → layer 3.** WU-4 set to RUNNING, Sortie 13 DISPATCHED | WU-3's ten sorties (five from the plan, five inserted) all COMPLETED and independently verified. |
 | 2026-08-02T09:50Z | WU-3 | 12 | **Sortie 12 COMPLETED** | Commit `800e8cc`, 811 insertions. All 16 criteria re-verified: **RQ-INV-1 holds** (`grep -c 'intrusive-memory\|SwiftProyecto'` returns 0 for both `Package.swift` and the importer), one `relativizingPaths` declaration, **zero absolute paths in `Tests/`**, `Package.swift` untouched. **199 tests green on both destinations.** |
 | 2026-08-02T09:50Z | WU-3 | 12 | Fixture vendored correctly per directive B | `Tests/Fixtures/confessions-PROJECT.md`, loaded by walking up from `#filePath` — no bundle resource, no `resources:` declaration, no `Package.swift` edit, and it resolves under the iOS simulator too (which is why `make test-ios` is green). The importer was also grepped for write operations: matches appear **only in doc comments**, and the real `confessions/PROJECT.md` is clean in its own repo's `git status`. |
 | 2026-08-02T09:50Z | WU-3 | 12a | **D-SUP-13: Sortie 12a inserted — there are two front-matter scanners, and the plan's own principle says there should be one** | Directive A assumed `CastMarkdownParser`'s split was callable. It is not: `splitFrontMatter(_:)` and its `FrontMatterSplit`/`ScannedLine`/`isDelimiterLine` helpers are **`private static`** (confirmed by the supervisor at `CastMarkdownParser.swift:207`), and the boundaries forbade widening them. The agent did the right thing — it neither blocked on a one-word access change nor quietly modified a frozen file, and it confined its local implementation to the smallest non-duplicate thing possible (front matter only, never computing body offsets, since an imported body is empty by task 6). **But the delimiter rules now exist in two places.** Sortie 9 task 8 established a shared relativization function *specifically so import and parse cannot drift*; the identical reasoning applies to the split, and the plan simply did not anticipate the access-level obstacle. Fixing it before Sortie 13 pins fixtures, because a drift between the two scanners would be invisible to every acceptance gate WU-4 defines. |
