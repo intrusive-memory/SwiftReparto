@@ -89,11 +89,11 @@ iteration: 1
 
 ### WU-4 Acceptance Gates
 - Work unit state: **RUNNING** — gate opened, WU-3 COMPLETED (layer 2 → 3)
-- Current sortie: 14 of 4 (IDs: 13 ✅, 14, 15, 16)
+- Current sortie: 15 of 4 (IDs: 13 ✅, 14 ✅, 15, 16)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
-- Complexity score: 9
+- Complexity score: 11
 - Attempt: 1 of 3
 - Notes: Sortie 13 pins the SHA-256 anchors for every WU-4 gate. Parallel Group 2 is **not** being used — see D-SUP-12.
 
@@ -138,7 +138,8 @@ iteration: 1
 | WU-3 | 12 | COMPLETED | 1/3 | opus | 13 | a0a04d08573c86d7f | 2026-08-02T09:15Z |
 | WU-3 | 12a | COMPLETED | 1/3 | sonnet | 7 | a3465a17ca5170f07 | 2026-08-02T09:50Z |
 | WU-4 | 13 | COMPLETED | 1/3 | sonnet | 11 | abfaddc0a867593f4 | 2026-08-02T10:15Z |
-| WU-4 | 14 | DISPATCHED | 1/3 | sonnet | 9 | (pending) | 2026-08-02T10:45Z |
+| WU-4 | 14 | COMPLETED | 1/3 | sonnet | 9 | a3938a18214d1fe60 | 2026-08-02T10:45Z |
+| WU-4 | 15 | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T11:15Z |
 
 ---
 
@@ -156,6 +157,10 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T11:15Z | WU-4 | 14 | **Sortie 14 COMPLETED — five acceptance criteria proven** | Commit `d228e35`. All 17 criteria re-verified: task 0's grep now returns **0** with the fixture's front matter byte-unchanged, `git diff --numstat -- Sources/` is **empty** (no source touched), the new `AcceptanceGateTests.swift` uses a plain `import SwiftReparto`, and `bio` is read through `subscript(extra:)` — the same public door a real consumer has, per D-8. **215 tests green across three separate `make test` processes plus iOS.** |
+| 2026-08-02T11:15Z | WU-4 | 14 | **The answer to the question that mattered most: nothing had to be adjusted to pass** | Explicitly asked whether any acceptance criterion failed before going green. **None did**, and no assertion was weakened or rewritten. The only defect fixed was the pre-authorized task 0 prose edit. This matters because a verification sortie's most dangerous available move is fixing the library — or the test — to make its own gate pass; the boundary forbidding it held, and the report addresses it directly rather than by omission. |
+| 2026-08-02T11:15Z | WU-4 | 14 | Directive D's front-matter slice, recorded for Sortie 17 | Task 7 compares `"---\n" + frontMatter + "---\n"` — from the string's start through the first `"\n---\n"` after the opening delimiter's own 4 bytes, inclusive of that match's upper bound. That is exactly what `generate` emits before appending `body`, so it captures through the closing delimiter's terminator and nothing of the body. Implemented as `frontMatterRegion(of:)` in `AcceptanceGateTests.swift`. |
+| 2026-08-02T11:15Z | WU-4 | 15 | **Trap for Sortie 15's `reject-neither.md`** | Sortie 9 established that front matter which is present but **empty** (`---\n---\nbody`) surfaces as `.invalidYAML`, not `.missingTypeCast` — the empty document decodes to a null node and `container(keyedBy:)` raises a `typeMismatch`. Task 3 wants "valid front matter with neither key", so the fixture must carry **some** real keys (e.g. `title:`, `author:`) while omitting `type:` and `cast:`. An empty front-matter block would produce the wrong error and the test would be pinning a different code path than the one RQ-1's dual check exists to reject. |
 | 2026-08-02T10:45Z | WU-4 | 13 | **Sortie 13 COMPLETED** | Commit `73533e0`. All 14 criteria re-verified: four fixtures tracked under `Tests/SwiftRepartoTests/Fixtures/`, `Tests/Fixtures/` **gone** (consolidated per directive A), `resources: [.copy("Fixtures")]` at `Package.swift:88-89` with no `.process`, `intrusive-memory`/`sibling` greps still 0, `Package.resolved` still exactly two pins, zero `/Users/` in `Tests/`. **206 tests green on both destinations** — `Bundle.module` resolves under the simulator, which was the real risk in switching off `#filePath`. |
 | 2026-08-02T10:45Z | WU-4 | 13 | Directive C honored: fixtures generated from the library, then the generator **deleted** | A throwaway `ZZZScratchFixtureGenerator.swift` imported the PROJECT fixture, called `generate`, and wrote to the scratchpad **outside the package** — never under `Fixtures/`. Its output was spliced with a hand-written body by `cat` concatenation to guarantee byte fidelity, then the generator was removed and its absence verified. This is what makes the anchors meaningful: a fixture the suite can regenerate would just re-derive whatever the code currently does and agree with itself. |
 | 2026-08-02T10:45Z | WU-4 | 13 | Confirmation worth recording: **all ten accumulated fixture constraints held exactly as stated** | Nothing in directive D turned out wrong or incomplete once fixtures were generated through the library rather than hand-typed. The `bio:` value's single-quoting (its embedded `: ` forces it) was a correctly predicted instance. `all-fields-CAST.md`'s `appearance:` keys emitted lexicographically sorted, independently confirming Sortie 8a's nested-mapping sort reaches that depth in real emitted output. |
