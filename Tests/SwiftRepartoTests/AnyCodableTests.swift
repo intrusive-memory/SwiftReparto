@@ -115,4 +115,85 @@ final class AnyCodableTests: XCTestCase {
     XCTAssertEqual(try recoveredLevel3?["leaf"]?.decode(String.self), "deep value")
     XCTAssertEqual(try recoveredLevel3?["count"]?.decode(Int.self), 3)
   }
+
+  // MARK: - Sortie 5a: null support
+
+  func testBareNullDecodesAndReencodesAsNull() throws {
+    let nullJSON = Data("null".utf8)
+    let decoded = try JSONDecoder().decode(AnyCodable.self, from: nullJSON)
+    XCTAssertTrue(decoded.isNull)
+
+    let reencoded = try JSONEncoder().encode(decoded)
+    XCTAssertEqual(String(data: reencoded, encoding: .utf8), "null")
+  }
+
+  func testDictionaryWithNullValueRoundTrip() throws {
+    let json = Data(#"{"note": null}"#.utf8)
+    let decoded = try JSONDecoder().decode([String: AnyCodable].self, from: json)
+    XCTAssertEqual(decoded.count, 1)
+    XCTAssertEqual(decoded["note"]?.isNull, true)
+
+    let wrapped = try AnyCodable(decoded)
+    let reencodedData = try JSONEncoder().encode(wrapped)
+    let roundTripped = try JSONDecoder().decode([String: AnyCodable].self, from: reencodedData)
+    XCTAssertEqual(roundTripped.count, 1)
+    XCTAssertEqual(roundTripped["note"]?.isNull, true)
+  }
+
+  func testArrayWithNullInPositionRoundTrip() throws {
+    let json = Data(#"[1, null, "x"]"#.utf8)
+    let decoded = try JSONDecoder().decode([AnyCodable].self, from: json)
+    XCTAssertEqual(decoded.count, 3)
+    XCTAssertEqual(try decoded[0].decode(Int.self), 1)
+    XCTAssertTrue(decoded[1].isNull)
+    XCTAssertEqual(try decoded[2].decode(String.self), "x")
+
+    let wrapped = try AnyCodable(decoded)
+    let reencodedData = try JSONEncoder().encode(wrapped)
+    let roundTripped = try JSONDecoder().decode([AnyCodable].self, from: reencodedData)
+    XCTAssertEqual(roundTripped.count, 3)
+    XCTAssertEqual(try roundTripped[0].decode(Int.self), 1)
+    XCTAssertTrue(roundTripped[1].isNull)
+    XCTAssertEqual(try roundTripped[2].decode(String.self), "x")
+  }
+
+  func testThreeLevelNestedDictionaryWithNullAtDeepestLevelRoundTrip() throws {
+    let json = Data(#"{"level1":{"level2":{"level3":null,"other":"value"}}}"#.utf8)
+    let decoded = try JSONDecoder().decode([String: AnyCodable].self, from: json)
+
+    let level1 = try decoded["level1"]?.decode([String: AnyCodable].self)
+    let level2 = try level1?["level2"]?.decode([String: AnyCodable].self)
+    XCTAssertEqual(level2?["level3"]?.isNull, true)
+    XCTAssertEqual(try level2?["other"]?.decode(String.self), "value")
+
+    let wrapped = try AnyCodable(decoded)
+    let reencodedData = try JSONEncoder().encode(wrapped)
+    let roundTripped = try JSONDecoder().decode([String: AnyCodable].self, from: reencodedData)
+
+    let rtLevel1 = try roundTripped["level1"]?.decode([String: AnyCodable].self)
+    let rtLevel2 = try rtLevel1?["level2"]?.decode([String: AnyCodable].self)
+    XCTAssertEqual(rtLevel2?["level3"]?.isNull, true)
+    XCTAssertEqual(try rtLevel2?["other"]?.decode(String.self), "value")
+  }
+
+  func testIsNullTrueForNullFalseForOtherFalsyValues() throws {
+    let nullValue = try JSONDecoder().decode(AnyCodable.self, from: Data("null".utf8))
+    XCTAssertTrue(nullValue.isNull)
+
+    XCTAssertFalse(try AnyCodable(false).isNull)
+    XCTAssertFalse(try AnyCodable(0).isNull)
+    XCTAssertFalse(try AnyCodable("").isNull)
+    XCTAssertFalse(try AnyCodable([AnyCodable]()).isNull)
+    XCTAssertFalse(try AnyCodable([String: AnyCodable]()).isNull)
+  }
+
+  func testNullNotEqualToOtherFalsyValues() throws {
+    let nullValue = try JSONDecoder().decode(AnyCodable.self, from: Data("null".utf8))
+
+    XCTAssertNotEqual(nullValue, try AnyCodable(false))
+    XCTAssertNotEqual(nullValue, try AnyCodable(0))
+    XCTAssertNotEqual(nullValue, try AnyCodable(""))
+    XCTAssertNotEqual(nullValue, try AnyCodable([AnyCodable]()))
+    XCTAssertNotEqual(nullValue, try AnyCodable([String: AnyCodable]()))
+  }
 }

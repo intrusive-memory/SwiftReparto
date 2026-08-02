@@ -32,6 +32,16 @@ import Foundation
 // SwiftProyecto twin collapse into this file, never the reverse. SwiftReparto
 // declares no dependency on SwiftProyecto (RQ-INV-1), so this vendored copy
 // is how the type gets here at all.
+//
+// EXCEPTION (Sortie 5a): null support (the `decodeNil()`/`encodeNil()`
+// branches and the public `isNull` property) is a SwiftReparto-side addition
+// not present in SwiftProyecto's twin. It exists because D-8's `extraKeys`
+// is `[String: AnyCodable]`, and a hand-written YAML cast file can trivially
+// contain a null-valued unknown key (e.g. `bio:` with nothing after it, or
+// an empty `appearance:` block per D-3). RQ-13's collapse direction is
+// `SwiftProyecto -> SwiftReparto`, so this file is canonical for null
+// handling: SwiftProyecto's twin should adopt this addition, not the other
+// way around.
 
 /// A type-erased wrapper for storing arbitrary Codable values.
 ///
@@ -46,6 +56,9 @@ import Foundation
 /// - Collections: `[T]` where T is `Codable`, `[String: T]` where T is `Codable`
 /// - Nested: Custom `Codable` structs
 /// - Optionals: `Optional<T>` where T is `Codable`
+/// - Null: a bare JSON/YAML `null`, decoded and re-encoded via
+///   `decodeNil()`/`encodeNil()`. See `isNull`. (SwiftReparto-side addition;
+///   see the file-level note above.)
 ///
 /// ## Example
 ///
@@ -69,6 +82,23 @@ public struct AnyCodable: Codable, Sendable, Equatable {
   ///
   /// This ensures thread-safety (Sendable) while preserving type information.
   private let encodedData: Data
+
+  /// The sentinel `encodedData` payload used to represent a wrapped `null`.
+  ///
+  /// A literal JSON `null` (four bytes, no quotes) can never collide with the
+  /// encoded form of any other supported value: `Bool`/`Int`/`Double` never
+  /// produce the token `null`, the string `"null"` encodes with surrounding
+  /// quotes, and arrays/dictionaries encode as `[...]`/`{...}`. This makes
+  /// byte-equality on `encodedData` (see `==` below) sufficient to keep
+  /// `null` distinct from `false`, `0`, `""`, `[]`, and `[:]`.
+  private static let nullData = Data("null".utf8)
+
+  /// Whether the wrapped value is JSON/YAML `null`.
+  ///
+  /// This lets callers branch on nullness without a `try?` decode dance.
+  public var isNull: Bool {
+    encodedData == AnyCodable.nullData
+  }
 
   /// Creates a type-erased wrapper for the given Codable value.
   ///
@@ -110,6 +140,14 @@ public struct AnyCodable: Codable, Sendable, Equatable {
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
+
+    // Null must be checked first: `try? container.decode(Bool.self)` on a
+    // null value must not be allowed to win, and ordering is the only thing
+    // preventing that.
+    if container.decodeNil() {
+      self.encodedData = AnyCodable.nullData
+      return
+    }
 
     // Try to decode as various types and store the encoded representation
     if let bool = try? container.decode(Bool.self) {
@@ -157,6 +195,14 @@ public struct AnyCodable: Codable, Sendable, Equatable {
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
+
+    // Symmetric with the decodeNil() check in init(from:): a null
+    // AnyCodable re-emits a literal `null`, not the string "null", an empty
+    // object, or a missing key.
+    if isNull {
+      try container.encodeNil()
+      return
+    }
 
     // Try to decode and re-encode to preserve the original structure
     let decoder = JSONDecoder()
