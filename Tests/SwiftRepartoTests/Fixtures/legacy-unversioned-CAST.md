@@ -17,7 +17,7 @@ cast:
 # Cast
 
 A roster hand-written before this library existed, and before `CAST.md`
-carried a schema version at all (D-5). It has no `schemaVersion` key, and it
+carried a schema version at all (D-5). It carries no version key, and it
 must never gain one by hand — the first program to write this file back out
 is what stamps it.
 
