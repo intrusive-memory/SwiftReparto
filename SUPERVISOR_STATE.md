@@ -94,21 +94,19 @@ iteration: 1
 - Notes: Sortie 13 pins the SHA-256 anchors for every WU-4 gate. Parallel Group 2 is **not** being used — see D-SUP-12.
 
 ### WU-5 CLI
-- Work unit state: **RUNNING** — gate opened, WU-4 COMPLETED (layer 3 → 4)
-- Current sortie: 18 of 2 (IDs: 17 ✅, 18)
+- Work unit state: **COMPLETED** — both sorties done (17, 18)
+- Sortie state: COMPLETED
+- Last verified: **Sortie 18 COMPLETED** — zero subprocess spawns in `CLITests.swift`, `Sources/` diff empty, leaf-invariant step still at `tests.yml:54`, new binary smoke step at `:68`, job names unchanged, protection still exactly the two contexts. **241 tests green on both destinations.**
+
+### WU-6 Beta Release
+- Work unit state: **RUNNING** — gate opened, WU-5 COMPLETED (layer 4 → 5)
+- Current sortie: 19 of 3 (IDs: 19, 19a, 20)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
-- Complexity score: 11
+- Complexity score: 12
 - Attempt: 1 of 3
-- Notes: Sortie 17 delivered the injectable sink correctly, so Sortie 18 can test the commands directly with no subprocess.
-
-### WU-6 Beta Release
-- Work unit state: NOT_STARTED
-- Current sortie: 19 of 3 sorties (IDs: 19, 19a, 20)
-- Sortie state: PENDING
-- Attempt: 0 of 3
-- Notes: Gated on WU-5 COMPLETED. Supervising agent only (git, `gh`, release APIs).
+- Notes: Final work unit. Sortie 20 carries the irreversible steps — tag, publish, register in `collection.json`, and flip visibility to public (D-SUP-6).
 
 ---
 
@@ -141,7 +139,8 @@ iteration: 1
 | WU-4 | 15 | COMPLETED | 1/3 | sonnet | 11 | a3a8a5a9e1c856d6e | 2026-08-02T11:15Z |
 | WU-4 | 16 | COMPLETED | 1/3 | sonnet | 10 | a62b3bc137b0e805f | 2026-08-02T11:45Z |
 | WU-5 | 17 | COMPLETED | 1/3 | sonnet | 11 | a21a655979297bffd | 2026-08-02T12:20Z |
-| WU-5 | 18 | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T13:00Z |
+| WU-5 | 18 | COMPLETED | 1/3 | sonnet | 11 | a7ab067e0de430350 | 2026-08-02T13:00Z |
+| WU-6 | 19 | DISPATCHED | 1/3 | sonnet | 12 | (pending) | 2026-08-02T13:40Z |
 
 ---
 
@@ -159,6 +158,9 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T13:40Z | WU-5 | 18 | **Sortie 18 COMPLETED — WU-5 CLOSED** | Commit `1720216`, 398 insertions, 0 deletions. All 16 criteria re-verified. **241 tests green on both destinations** (223 + 18 new). `otool -L ./bin/reparto` names only system frameworks and SDK Swift runtime libs — **nothing under `DerivedData`**, so the shipped artifact runs without the build tree. `xcodebuild -list` shows the `reparto` scheme resolves. CI: **1 run**, PR #4, green macOS job showing the new binary smoke step. |
+| 2026-08-02T13:40Z | WU-5 | 18 | Task 2's escalation clause did not fire, and that is the finding | The agent re-checked `grep -rcE '^\s*print\(\|standardError' Sources/RepartoCLICore/` and got 0 — **no command writes to a global stream, so no Sortie 17 defect existed and no refactor was needed.** `CapturingSink` holds independent `stdout`/`stderr` arrays and every command test asserts on the two separately (a failed `validate` asserts `stdout == []` **and** `stderr == [message]`; `--quiet` asserts both empty). `CapturingSink` is `@unchecked Sendable`, which is correct — the prohibition is scoped to `Sources/`, and this is in `Tests/`. |
+| 2026-08-02T13:40Z | WU-6 | 20 | **Operational note for the release sortie** | `tests.yml` triggers only on `pull_request`, so a direct push to `development` produces **zero CI signal**. Sorties 3, 16, and 18 each needed a throwaway PR round-trip to get a real reading. Sortie 20 must not mistake a silent push for a green build. |
 | 2026-08-02T13:00Z | WU-5 | 17 | **Sortie 17 COMPLETED** | Commit `05d317b`, +637/-34. All 18 criteria re-verified: every CLI-purity grep returns 0, `Sources/SwiftReparto/` **untouched**, leaf guard exits 0, `./bin/reparto --version` prints and exits 0. 223 tests still green on both destinations. |
 | 2026-08-02T13:00Z | WU-5 | 18 | **Task 6a delivered correctly — Sortie 18 can test without a subprocess** | `OutputSink` is a `Sendable` protocol with `writeOutput`/`writeError`; each command holds `public var sink: any OutputSink = ConsoleOutputSink()` and exposes an init taking one. `ConsoleOutputSink` is the only type touching a real stream. **`sink` is excluded from each command's synthesized `Decodable` via an explicit `CodingKeys` listing only parsed arguments** — that is the detail that makes the default survive `ParsableArguments`. `main.swift` is the sole place a `ConsoleOutputSink()` is constructed. Sortie 18 can build `ValidateCommand(path:quiet:sink:)` / `ImportCommand(projectPath:output:force:dryRun:sink:)` with a capturing sink and call `.run()` directly. |
 | 2026-08-02T13:00Z | WU-5 | 18 | **Nasty trap for any future helper in `RepartoCLICore`: name collisions with `ParsableCommand`'s inherited statics** | ArgumentParser's `ParsableCommand` already vends static `message(for:)` and `exitCode(for:)`-shaped members. A **free function** with either name silently resolves to the protocol member instead — member lookup beats file-scope lookup — producing baffling type errors rather than a redeclaration error. The agent hit both and renamed to `repartoExitCode(for:)` and `errorMessage(for:)`. Also: **any new non-argument stored property on a command must be added to `CodingKeys`** or `Decodable` synthesis breaks. |
