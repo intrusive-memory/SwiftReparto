@@ -12,8 +12,11 @@ and the guarantee that nothing you hand-wrote in it ever disappears.
 Part of the [intrusive-memory](https://github.com/intrusive-memory) ecosystem. Ships as the
 **SwiftReparto** library plus a `reparto` executable — no GUI, no models, no network.
 
-> **Status: beta.** Implementation is underway.
-> See [REQUIREMENTS.md](REQUIREMENTS.md).
+> **Status: beta.** Two products ship: the `SwiftReparto` library and the
+> `reparto` executable. See [REQUIREMENTS.md](REQUIREMENTS.md) for the full
+> contract and [AGENTS.md](AGENTS.md) for the standing rules a consumer or
+> contributor needs — the schema version, the CLI's exit codes, and the YAML
+> dialect this library reads.
 
 ## Why
 
@@ -71,6 +74,77 @@ cast:
 `voices` is written by SwiftEchada. `appearance` is written by SwiftSemblanzas. Neither reaches for
 the other's keys, and neither writes the file.
 
+## Install
+
+Two products, two install paths. There is no Homebrew formula yet — the org's
+tap only tracks stable releases, and this is a beta (see
+[AGENTS.md](AGENTS.md#release) for exactly why).
+
+### The library, via Swift Package Manager
+
+<!-- Sortie 20 substitutes <BETA_TAG> with the tagged beta version at release time. -->
+
+```swift
+.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", exact: "<BETA_TAG>")
+```
+
+Then depend on the `SwiftReparto` product in the target that reads or writes
+cast data. `RepartoCLICore` is deliberately not a product — the library
+carries no CLI dependency.
+
+### The `reparto` binary, via `gh release download`
+
+```sh
+gh release download <BETA_TAG> \
+  --repo intrusive-memory/SwiftReparto \
+  --pattern 'reparto-*-arm64-macos.tar.gz'
+tar xzf reparto-*-arm64-macos.tar.gz
+./reparto --version
+```
+
+Every release — including this beta — attaches an arm64 macOS tarball; see
+`.github/workflows/release.yml`.
+
+## Usage
+
+### Import a cast from `PROJECT.md`
+
+```swift
+import SwiftReparto
+
+let importer = ProjectCastImporter()
+let document = try importer.importCast(fileURL: projectMdURL)
+
+// Write it out as a new, versioned CAST.md beside the PROJECT.md.
+// ProjectCastImporter never writes PROJECT.md itself (read-only on that path).
+let castURL = projectMdURL.deletingLastPathComponent().appendingPathComponent("CAST.md")
+try CastMarkdownParser().write(document: document, to: castURL)
+```
+
+Equivalently, from the shell:
+
+```sh
+reparto import path/to/PROJECT.md
+```
+
+### Parse, mutate, write
+
+```swift
+import SwiftReparto
+
+let parser = CastMarkdownParser()
+var document = try parser.parse(fileURL: castURL)
+
+document.cast[0].actor = "Tom Stovall"
+document.cast[0].voices["voxalta", default: []].append("voices/NARRATOR-alt.vox")
+// document.body is left untouched — SwiftReparto never touches your prose.
+
+try parser.write(document: document, to: castURL)
+```
+
+`reparto validate path/to/CAST.md` checks that a file parses at all, without
+mutating it — useful as a pre-commit or CI check on hand-edited cast files.
+
 ## Requirements
 
 | | Minimum |
@@ -82,6 +156,9 @@ the other's keys, and neither writes the file.
 ## Documentation
 
 - [REQUIREMENTS.md](REQUIREMENTS.md) — schema, API, invariants, acceptance criteria.
+- [AGENTS.md](AGENTS.md) — standing rules: the leaf invariant, the one-writer
+  rule, the schema version policy, the YAML dialect, the CLI's exit codes,
+  and why there's no Homebrew formula yet.
 
 ## License
 
