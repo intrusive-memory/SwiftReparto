@@ -95,13 +95,13 @@ iteration: 1
 
 ### WU-5 CLI
 - Work unit state: **RUNNING** — gate opened, WU-4 COMPLETED (layer 3 → 4)
-- Current sortie: 17 of 2 (IDs: 17, 18)
+- Current sortie: 18 of 2 (IDs: 17 ✅, 18)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
 - Complexity score: 11
 - Attempt: 1 of 3
-- Notes: Task 6a's injectable output sink is a **design constraint Sortie 18 cannot retrofit** — getting it wrong means Sortie 18 rewrites this sortie instead of testing it.
+- Notes: Sortie 17 delivered the injectable sink correctly, so Sortie 18 can test the commands directly with no subprocess.
 
 ### WU-6 Beta Release
 - Work unit state: NOT_STARTED
@@ -140,7 +140,8 @@ iteration: 1
 | WU-4 | 14 | COMPLETED | 1/3 | sonnet | 9 | a3938a18214d1fe60 | 2026-08-02T10:45Z |
 | WU-4 | 15 | COMPLETED | 1/3 | sonnet | 11 | a3a8a5a9e1c856d6e | 2026-08-02T11:15Z |
 | WU-4 | 16 | COMPLETED | 1/3 | sonnet | 10 | a62b3bc137b0e805f | 2026-08-02T11:45Z |
-| WU-5 | 17 | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T12:20Z |
+| WU-5 | 17 | COMPLETED | 1/3 | sonnet | 11 | a21a655979297bffd | 2026-08-02T12:20Z |
+| WU-5 | 18 | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T13:00Z |
 
 ---
 
@@ -158,6 +159,11 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T13:00Z | WU-5 | 17 | **Sortie 17 COMPLETED** | Commit `05d317b`, +637/-34. All 18 criteria re-verified: every CLI-purity grep returns 0, `Sources/SwiftReparto/` **untouched**, leaf guard exits 0, `./bin/reparto --version` prints and exits 0. 223 tests still green on both destinations. |
+| 2026-08-02T13:00Z | WU-5 | 18 | **Task 6a delivered correctly — Sortie 18 can test without a subprocess** | `OutputSink` is a `Sendable` protocol with `writeOutput`/`writeError`; each command holds `public var sink: any OutputSink = ConsoleOutputSink()` and exposes an init taking one. `ConsoleOutputSink` is the only type touching a real stream. **`sink` is excluded from each command's synthesized `Decodable` via an explicit `CodingKeys` listing only parsed arguments** — that is the detail that makes the default survive `ParsableArguments`. `main.swift` is the sole place a `ConsoleOutputSink()` is constructed. Sortie 18 can build `ValidateCommand(path:quiet:sink:)` / `ImportCommand(projectPath:output:force:dryRun:sink:)` with a capturing sink and call `.run()` directly. |
+| 2026-08-02T13:00Z | WU-5 | 18 | **Nasty trap for any future helper in `RepartoCLICore`: name collisions with `ParsableCommand`'s inherited statics** | ArgumentParser's `ParsableCommand` already vends static `message(for:)` and `exitCode(for:)`-shaped members. A **free function** with either name silently resolves to the protocol member instead — member lookup beats file-scope lookup — producing baffling type errors rather than a redeclaration error. The agent hit both and renamed to `repartoExitCode(for:)` and `errorMessage(for:)`. Also: **any new non-argument stored property on a command must be added to `CodingKeys`** or `Decodable` synthesis breaks. |
+| 2026-08-02T13:00Z | — | — | **Seventh instance of the mission's recurring defect species — this one bit a doc comment** | Exit criterion `grep -c 'importCast(content:' Sources/RepartoCLICore/` returns 0 — but the agent's first draft **failed it in a doc comment explaining why that call is avoided**. Identical in shape to Sortie 1a's Makefile comments, and it forced prose to be paraphrased rather than accurate. Running tally of string-matches-standing-in-for-semantics: Sortie 1a (`swift build`/`OS=latest` in comments), Sortie 2 (`No CLI target` vs `No CLI`), Sortie 5 (preserve a nonexistent MIT header), Sortie 13 (fixture prose breaking its own grep), Sortie 15 (`throws: Error.self` absence ≠ specific assertions), Sortie 17 (this one). **Five inherited from the plan, two authored by sorties.** This is the mission brief's headline finding. |
+| 2026-08-02T13:00Z | WU-6 | 20 | `RepartoVersion.current` is the provisional `"0.0.0-dev"` in a single constant | Sortie 20 is the only sortie authorized to set its final value, at tag time. |
 | 2026-08-02T12:20Z | WU-4 | 16 | **Sortie 16 COMPLETED — WU-4 CLOSED. The guard was observed red on a real PR.** | Commit `2570aac`. All 12 criteria re-verified. **The guard genuinely gates**: it is a step inside `Test on macOS`, which branch protection already requires, so a violating PR cannot merge green. Proven by scratch PR #3 — run `30734534929`, step "Check leaf invariant (RQ-INV-1)" failed in 22s, the `Test` step skipped, job red. Both failure modes were carried on the **one** scratch branch, so a single PR proved both. PR closed unmerged, branch deleted, `development`/`main` untouched. |
 | 2026-08-02T12:20Z | WU-4 | 16 | **All four checks were broken locally first — the cheap way to prove a gate** | (1) an `intrusive-memory` mention in `Package.swift`; (2) a third pin in `Package.resolved`; (3) `ArgumentParser` added to the `SwiftReparto` target, caught via `swift package dump-package` rather than a manifest grep — *"the check that matters most now that a CLI exists"*; (4) `import ArgumentParser` in `Sources/SwiftReparto/`. Each produced a legible non-zero failure. **CI cost: 1 run of the 4 budgeted**, because everything provable on a laptop was proved there first. |
 | 2026-08-02T12:20Z | — | — | **GATE: layer 3 → layer 4.** WU-5 set to RUNNING, Sortie 17 DISPATCHED | WU-4's four sorties all COMPLETED and independently verified. 223 tests green. |
