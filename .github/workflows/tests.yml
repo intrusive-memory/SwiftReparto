@@ -56,6 +56,20 @@ jobs:
       - name: Test
         run: make test
 
+      # Sortie 18: the one place this pipeline proves the *shipped binary*
+      # runs, not just the library code behind it. `make test` above drives
+      # RepartoCLICore in-process through its injectable sink; nothing in
+      # that path ever launches `./bin/reparto` as its own process, and a
+      # regression in the release build's linking or packaging could still
+      # slip through a fully green unit-test run. The fixture path is
+      # repo-relative on purpose, so this step runs identically on any
+      # runner or developer machine. A non-zero exit from either command
+      # fails this step, which fails this required job.
+      - name: Build and smoke test the release binary
+        run: |
+          make release
+          ./bin/reparto validate Tests/SwiftRepartoTests/Fixtures/confessions-CAST.md
+
   test-ios:
     # Branch-protection context, as above.
     name: Test on iOS Simulator
