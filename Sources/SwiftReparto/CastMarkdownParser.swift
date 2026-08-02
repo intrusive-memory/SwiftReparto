@@ -110,7 +110,7 @@ public struct CastMarkdownParser: Sendable {
     // such ambiguity, and "byte-for-byte" is the requirement's own word.
     let bytes = Array(content.utf8)
 
-    guard let split = Self.splitFrontMatter(bytes) else {
+    guard let split = splitFrontMatter(bytes) else {
       throw CastParseError.noFrontMatter
     }
 
@@ -132,7 +132,7 @@ public struct CastMarkdownParser: Sendable {
       // perfectly and merely said the wrong thing.
       throw error
     } catch {
-      throw CastParseError.invalidYAML(Self.failureMessage(for: error))
+      throw CastParseError.invalidYAML(failureMessage(for: error))
     }
 
     // The decoder cannot see the body and sets it empty; the split owns it.
@@ -169,192 +169,203 @@ public struct CastMarkdownParser: Sendable {
     return relativizingPaths(in: document, to: fileURL.deletingLastPathComponent())
   }
 
-  // MARK: - Front-matter split (D-10)
+}
 
-  /// A closing `---` was found: the byte ranges of the YAML block and of the
-  /// body that follows it.
-  ///
-  /// Ranges rather than strings, so the caller decides what to materialize and
-  /// neither piece is ever assembled from parts.
-  private struct FrontMatterSplit {
-    /// Every byte between the opening delimiter's terminator and the start of
-    /// the closing delimiter's line. This is the YAML text, including the
-    /// terminator of its own last line.
-    let frontMatter: Range<Int>
+// MARK: - Front-matter split (D-10)
+//
+// Declared once, at module scope, on purpose — exactly like
+// `relativizingPaths(in:to:)` below. `ProjectCastImporter` shares this split
+// rather than restating the delimiter rules, so import and parse cannot
+// silently disagree about what counts as front matter (Sortie 12a). It is
+// `internal`, not `public`: this is a module-internal implementation detail,
+// not API surface.
 
-    /// Every byte after the closing delimiter's line terminator, to end of
-    /// file. Empty when the file ends at the delimiter.
-    let body: Range<Int>
-  }
+/// A closing `---` was found: the byte ranges of the YAML block and of the
+/// body that follows it.
+///
+/// Ranges rather than strings, so the caller decides what to materialize and
+/// neither piece is ever assembled from parts.
+struct FrontMatterSplit {
+  /// Every byte between the opening delimiter's terminator and the start of
+  /// the closing delimiter's line. This is the YAML text, including the
+  /// terminator of its own last line.
+  let frontMatter: Range<Int>
 
-  /// Locates the front-matter block, or reports that there isn't one.
-  ///
-  /// The rules, stated once:
-  ///
-  /// - The very first line must be a delimiter. Front matter that starts on
-  ///   line 2 is not front matter.
-  /// - The block ends at the **first** delimiter line after the opening one.
-  ///   Everything past that line's terminator is body, `---` lines included —
-  ///   which is what makes a markdown body containing a horizontal rule or a
-  ///   nested front-matter example survive intact.
-  /// - No closing delimiter means no front matter, not "front matter running to
-  ///   end of file". A file whose entire content is YAML with a stray leading
-  ///   `---` has no body and no closing marker; treating it as parseable would
-  ///   turn a truncated file into a successful parse.
-  ///
-  /// - Parameter bytes: The whole file, as UTF-8 bytes.
-  /// - Returns: The split, or `nil` when the content carries no front matter.
-  private static func splitFrontMatter(_ bytes: [UInt8]) -> FrontMatterSplit? {
-    let opening = scanLine(bytes, from: 0)
+  /// Every byte after the closing delimiter's line terminator, to end of
+  /// file. Empty when the file ends at the delimiter.
+  let body: Range<Int>
+}
 
-    // No opening delimiter at all, or the file is nothing but `---` with no
-    // terminator, in which case there is no room for a closing one.
-    guard isDelimiterLine(bytes, opening.contentRange), opening.hasTerminator else {
-      return nil
-    }
+/// Locates the front-matter block, or reports that there isn't one.
+///
+/// The rules, stated once:
+///
+/// - The very first line must be a delimiter. Front matter that starts on
+///   line 2 is not front matter.
+/// - The block ends at the **first** delimiter line after the opening one.
+///   Everything past that line's terminator is body, `---` lines included —
+///   which is what makes a markdown body containing a horizontal rule or a
+///   nested front-matter example survive intact.
+/// - No closing delimiter means no front matter, not "front matter running to
+///   end of file". A file whose entire content is YAML with a stray leading
+///   `---` has no body and no closing marker; treating it as parseable would
+///   turn a truncated file into a successful parse.
+///
+/// - Parameter bytes: The whole file, as UTF-8 bytes.
+/// - Returns: The split, or `nil` when the content carries no front matter.
+func splitFrontMatter(_ bytes: [UInt8]) -> FrontMatterSplit? {
+  let opening = scanLine(bytes, from: 0)
 
-    let frontMatterStart = opening.nextLineStart
-    var lineStart = frontMatterStart
-
-    while lineStart < bytes.count {
-      let line = scanLine(bytes, from: lineStart)
-
-      if isDelimiterLine(bytes, line.contentRange) {
-        // `lineStart` is the first byte of the closing delimiter's line, so the
-        // front matter ends just before it — carrying the terminator of its own
-        // last line, which is what makes it a well-formed YAML document.
-        //
-        // `line.nextLineStart` is the first byte after that delimiter's
-        // terminator, and it is the body's first byte. It equals `bytes.count`
-        // when the file ends at the delimiter, which yields an empty body
-        // rather than a special case.
-        return FrontMatterSplit(
-          frontMatter: frontMatterStart..<lineStart,
-          body: line.nextLineStart..<bytes.count)
-      }
-
-      guard line.hasTerminator else { break }
-      lineStart = line.nextLineStart
-    }
-
+  // No opening delimiter at all, or the file is nothing but `---` with no
+  // terminator, in which case there is no room for a closing one.
+  guard isDelimiterLine(bytes, opening.contentRange), opening.hasTerminator else {
     return nil
   }
 
-  /// One line's geometry, in byte offsets.
-  private struct ScannedLine {
-    /// The line's bytes, excluding its terminator — and excluding the `\r` of a
-    /// CRLF, which belongs to the terminator and not to the content.
-    let contentRange: Range<Int>
+  let frontMatterStart = opening.nextLineStart
+  var lineStart = frontMatterStart
 
-    /// The first byte of the next line, or the end of the file.
-    let nextLineStart: Int
+  while lineStart < bytes.count {
+    let line = scanLine(bytes, from: lineStart)
 
-    /// Whether the line was terminated at all. `false` only for a final line
-    /// with no trailing newline.
-    let hasTerminator: Bool
+    if isDelimiterLine(bytes, line.contentRange) {
+      // `lineStart` is the first byte of the closing delimiter's line, so the
+      // front matter ends just before it — carrying the terminator of its own
+      // last line, which is what makes it a well-formed YAML document.
+      //
+      // `line.nextLineStart` is the first byte after that delimiter's
+      // terminator, and it is the body's first byte. It equals `bytes.count`
+      // when the file ends at the delimiter, which yields an empty body
+      // rather than a special case.
+      return FrontMatterSplit(
+        frontMatter: frontMatterStart..<lineStart,
+        body: line.nextLineStart..<bytes.count)
+    }
+
+    guard line.hasTerminator else { break }
+    lineStart = line.nextLineStart
   }
 
-  /// Measures the line beginning at `start`.
-  ///
-  /// LF and CRLF are the recognized terminators. A lone CR is not: it is
-  /// classic-Mac OS 9 line ending, it does not appear in any file this library
-  /// has ever been handed, and treating it as a terminator would split a body
-  /// that deliberately contains one. It stays in the line's content, where it
-  /// will be copied through verbatim like every other byte.
-  ///
-  /// - Parameters:
-  ///   - bytes: The whole file.
-  ///   - start: The line's first byte. Must be a valid offset into `bytes`, or
-  ///     `bytes.count` for the empty line at end of file.
-  /// - Returns: The line's geometry.
-  private static func scanLine(_ bytes: [UInt8], from start: Int) -> ScannedLine {
-    let lineFeed = UInt8(ascii: "\n")
-    let carriageReturn = UInt8(ascii: "\r")
+  return nil
+}
 
-    var cursor = start
-    while cursor < bytes.count, bytes[cursor] != lineFeed {
-      cursor += 1
-    }
+/// One line's geometry, in byte offsets.
+struct ScannedLine {
+  /// The line's bytes, excluding its terminator — and excluding the `\r` of a
+  /// CRLF, which belongs to the terminator and not to the content.
+  let contentRange: Range<Int>
 
-    guard cursor < bytes.count else {
-      return ScannedLine(
-        contentRange: start..<bytes.count,
-        nextLineStart: bytes.count,
-        hasTerminator: false)
-    }
+  /// The first byte of the next line, or the end of the file.
+  let nextLineStart: Int
 
-    // The `\r` of a CRLF is part of the terminator, so the delimiter test below
-    // sees `---` on a CRLF file exactly as it does on an LF one.
-    let contentEnd = (cursor > start && bytes[cursor - 1] == carriageReturn) ? cursor - 1 : cursor
+  /// Whether the line was terminated at all. `false` only for a final line
+  /// with no trailing newline.
+  let hasTerminator: Bool
+}
 
+/// Measures the line beginning at `start`.
+///
+/// LF and CRLF are the recognized terminators. A lone CR is not: it is
+/// classic-Mac OS 9 line ending, it does not appear in any file this library
+/// has ever been handed, and treating it as a terminator would split a body
+/// that deliberately contains one. It stays in the line's content, where it
+/// will be copied through verbatim like every other byte.
+///
+/// - Parameters:
+///   - bytes: The whole file.
+///   - start: The line's first byte. Must be a valid offset into `bytes`, or
+///     `bytes.count` for the empty line at end of file.
+/// - Returns: The line's geometry.
+func scanLine(_ bytes: [UInt8], from start: Int) -> ScannedLine {
+  let lineFeed = UInt8(ascii: "\n")
+  let carriageReturn = UInt8(ascii: "\r")
+
+  var cursor = start
+  while cursor < bytes.count, bytes[cursor] != lineFeed {
+    cursor += 1
+  }
+
+  guard cursor < bytes.count else {
     return ScannedLine(
-      contentRange: start..<contentEnd,
-      nextLineStart: cursor + 1,
-      hasTerminator: true)
+      contentRange: start..<bytes.count,
+      nextLineStart: bytes.count,
+      hasTerminator: false)
   }
 
-  /// Whether a line's content is a front-matter delimiter.
-  ///
-  /// Exactly three hyphens, then nothing but spaces and tabs. Trailing
-  /// horizontal whitespace is tolerated because `CAST.md` is hand-edited and an
-  /// invisible trailing space is not a reason to tell someone their file is not
-  /// a cast document; tolerating it widens what parses and changes no byte of
-  /// the body, since the body begins after the terminator either way.
-  ///
-  /// Four hyphens is not a delimiter. `----` is a markdown horizontal rule, and
-  /// a body is allowed to contain one.
-  private static func isDelimiterLine(_ bytes: [UInt8], _ range: Range<Int>) -> Bool {
-    let hyphen = UInt8(ascii: "-")
-    let space = UInt8(ascii: " ")
-    let tab = UInt8(ascii: "\t")
+  // The `\r` of a CRLF is part of the terminator, so the delimiter test below
+  // sees `---` on a CRLF file exactly as it does on an LF one.
+  let contentEnd = (cursor > start && bytes[cursor - 1] == carriageReturn) ? cursor - 1 : cursor
 
-    guard range.count >= 3 else { return false }
-    let delimiterEnd = range.lowerBound + 3
-    guard bytes[range.lowerBound..<delimiterEnd].allSatisfy({ $0 == hyphen }) else { return false }
-    return bytes[delimiterEnd..<range.upperBound].allSatisfy { $0 == space || $0 == tab }
+  return ScannedLine(
+    contentRange: start..<contentEnd,
+    nextLineStart: cursor + 1,
+    hasTerminator: true)
+}
+
+/// Whether a line's content is a front-matter delimiter.
+///
+/// Exactly three hyphens, then nothing but spaces and tabs. Trailing
+/// horizontal whitespace is tolerated because `CAST.md` is hand-edited and an
+/// invisible trailing space is not a reason to tell someone their file is not
+/// a cast document; tolerating it widens what parses and changes no byte of
+/// the body, since the body begins after the terminator either way.
+///
+/// Four hyphens is not a delimiter. `----` is a markdown horizontal rule, and
+/// a body is allowed to contain one.
+func isDelimiterLine(_ bytes: [UInt8], _ range: Range<Int>) -> Bool {
+  let hyphen = UInt8(ascii: "-")
+  let space = UInt8(ascii: " ")
+  let tab = UInt8(ascii: "\t")
+
+  guard range.count >= 3 else { return false }
+  let delimiterEnd = range.lowerBound + 3
+  guard bytes[range.lowerBound..<delimiterEnd].allSatisfy({ $0 == hyphen }) else { return false }
+  return bytes[delimiterEnd..<range.upperBound].allSatisfy { $0 == space || $0 == tab }
+}
+
+// MARK: - Error text
+
+/// The message carried by ``CastParseError/invalidYAML(_:)``.
+///
+/// `localizedDescription` is deliberately not used. A `DecodingError` renders
+/// through it as "The data couldn't be read because it isn't in the correct
+/// format.", and a `YamlError` — which is not a `LocalizedError` — as "The
+/// operation couldn't be completed.", so both would discard the line and
+/// column the caller was promised. The parser's own `debugDescription` and
+/// `CustomStringConvertible` text carry that detail, so those are what travel.
+///
+/// Shared with `ProjectCastImporter` so a `.invalidYAML` message is curated
+/// identically on both paths (Sortie 12a task 4).
+///
+/// - Parameter error: The failure raised beneath the decode.
+/// - Returns: A message naming what failed and, where the parser knew, where.
+func failureMessage(for error: Error) -> String {
+  guard let decodingError = error as? DecodingError else {
+    // `YamlError` lands here; its description includes the line, column, and
+    // the offending context libyaml reported.
+    return String(describing: error)
   }
 
-  // MARK: - Error text
-
-  /// The message carried by ``CastParseError/invalidYAML(_:)``.
-  ///
-  /// `localizedDescription` is deliberately not used. A `DecodingError` renders
-  /// through it as "The data couldn't be read because it isn't in the correct
-  /// format.", and a `YamlError` — which is not a `LocalizedError` — as "The
-  /// operation couldn't be completed.", so both would discard the line and
-  /// column the caller was promised. The parser's own `debugDescription` and
-  /// `CustomStringConvertible` text carry that detail, so those are what travel.
-  ///
-  /// - Parameter error: The failure raised beneath the decode.
-  /// - Returns: A message naming what failed and, where the parser knew, where.
-  private static func failureMessage(for error: Error) -> String {
-    guard let decodingError = error as? DecodingError else {
-      // `YamlError` lands here; its description includes the line, column, and
-      // the offending context libyaml reported.
-      return String(describing: error)
-    }
-
-    let context: DecodingError.Context
-    switch decodingError {
-    case .dataCorrupted(let errorContext):
-      context = errorContext
-    case .keyNotFound(_, let errorContext):
-      context = errorContext
-    case .typeMismatch(_, let errorContext):
-      context = errorContext
-    case .valueNotFound(_, let errorContext):
-      context = errorContext
-    @unknown default:
-      return String(describing: decodingError)
-    }
-
-    // A `dataCorrupted` raised by Yams' own wrapping says only "The given data
-    // was not valid YAML."; the real cause is the `underlyingError` beneath it.
-    let cause = context.underlyingError.map { " \(String(describing: $0))" } ?? ""
-    let path = context.codingPath.map(\.stringValue).joined(separator: ".")
-    let location = path.isEmpty ? "" : " (at '\(path)')"
-    return context.debugDescription + cause + location
+  let context: DecodingError.Context
+  switch decodingError {
+  case .dataCorrupted(let errorContext):
+    context = errorContext
+  case .keyNotFound(_, let errorContext):
+    context = errorContext
+  case .typeMismatch(_, let errorContext):
+    context = errorContext
+  case .valueNotFound(_, let errorContext):
+    context = errorContext
+  @unknown default:
+    return String(describing: decodingError)
   }
+
+  // A `dataCorrupted` raised by Yams' own wrapping says only "The given data
+  // was not valid YAML."; the real cause is the `underlyingError` beneath it.
+  let cause = context.underlyingError.map { " \(String(describing: $0))" } ?? ""
+  let path = context.codingPath.map(\.stringValue).joined(separator: ".")
+  let location = path.isEmpty ? "" : " (at '\(path)')"
+  return context.debugDescription + cause + location
 }
 
 // MARK: - Path relativization (D-7, RQ-7)
