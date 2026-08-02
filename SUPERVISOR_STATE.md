@@ -100,12 +100,13 @@ iteration: 1
 
 ### WU-6 Beta Release
 - Work unit state: **RUNNING** — gate opened, WU-5 COMPLETED (layer 4 → 5)
-- Current sortie: 19a of 3 (IDs: 19 ✅, 19a, 20)
+- Current sortie: **20 of 3 — TERMINAL** (IDs: 19 ✅, 19a ✅, 20)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: sonnet
-- Complexity score: 11
+- Model: opus
+- Complexity score: 17
 - Attempt: 1 of 3
+- Notes: The irreversible sortie — merge to `main`, tag `v0.1.0-beta.1` as a prerelease, first-ever `release.yml` run, register in `collection.json`, file the SwiftEscribo issue, and flip the repo to public (D-SUP-6).
 - Notes: Final work unit. Sortie 20 carries the irreversible steps — tag, publish, register in `collection.json`, and flip visibility to public (D-SUP-6).
 
 ---
@@ -141,7 +142,8 @@ iteration: 1
 | WU-5 | 17 | COMPLETED | 1/3 | sonnet | 11 | a21a655979297bffd | 2026-08-02T12:20Z |
 | WU-5 | 18 | COMPLETED | 1/3 | sonnet | 11 | a7ab067e0de430350 | 2026-08-02T13:00Z |
 | WU-6 | 19 | COMPLETED | 1/3 | sonnet | 12 | ae9f2578897f24c19 | 2026-08-02T13:40Z |
-| WU-6 | 19a | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T14:15Z |
+| WU-6 | 19a | COMPLETED | 1/3 | sonnet | 11 | ab8ef661946819997 | 2026-08-02T14:15Z |
+| WU-6 | 20 | DISPATCHED | 1/3 | opus | 17 | (pending) | 2026-08-02T14:55Z |
 
 ---
 
@@ -159,6 +161,10 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T14:55Z | WU-6 | 19a | **Sortie 19a COMPLETED** | Commit `28063f4`, 296 insertions, **0 deletions** — every changed line is an insertion, so no signature, body, or access level moved, which is exactly what task 5 required. 86 public declarations checked; the gate is a step in `Lint` at `lint.yml:65`. 241 tests green on both destinations. **No CI run consumed.** |
+| 2026-08-02T14:55Z | WU-6 | 19a | **The agent did NOT author the mission's eighth string-match defect** | Warned that its own script scans for `public` and could be defeated by the thing it checks, it handled all three cases and **demonstrated** rather than asserted: `public` must be the literal first token of a line (so `///` prose containing the word never matches); triple-quoted `discussion:` blocks are tracked by toggling an in-string flag, verified against a scratch file holding a fake `public struct` **inside a string literal**; the `@available(*, deprecated, renamed:)` attribute line between comment and declaration is transparently skipped. It also confirmed a plain `// MARK:` header correctly does **not** count as documentation. |
+| 2026-08-02T14:55Z | WU-6 | 19a | Gap list: 16 declarations across 6 files genuinely lacked comments | Mostly raw conformance methods — `init(from:)`/`encode(to:)` on `AnyCodable` and `CastMember`, ArgumentParser `configuration`/`init()`/`run()` boilerplate, and `ConsoleOutputSink`'s methods. Also: `AnyCodable`'s canonical-copy status and the `SwiftProyecto → SwiftReparto` collapse direction lived only in a plain `//` header that **DocC never surfaces**; it is now in the real `///` block. |
+| 2026-08-02T14:55Z | WU-6 | 20 | **Release facts the supervisor established before dispatch** | (1) **No tags exist in this repository** — `git tag | wc -l` is 0, so this is the initial release and there is no higher semver to increment from. (2) **Org convention is `v`-prefixed semver**: SwiftEscribo runs `v0.1.0`/`v0.2.0`/`v0.3.0`, SwiftProyecto `v4.8.1`. The supervisor therefore fixes the beta tag at **`v0.1.0-beta.1`** — a release-time determination, which is precisely what standing version policy contemplates, rather than a number invented in the plan. (3) **`main` is stale at `6efa3cf`** (Sortie 3's fast-forward); every sortie since has landed on `development`, so Sortie 20 must land `development → main` through a PR before tagging. |
 | 2026-08-02T14:15Z | WU-6 | 19 | **Sortie 19 COMPLETED** | Commit `697c19c`, 499 insertions. All 11 criteria re-verified: six root docs present, `CLAUDE.md`/`GEMINI.md` `readlink` to `AGENTS.md`, zero `pre-alpha`, zero `brew install`, `Sources/` and `Tests/` diff empty, `type:` frontmatter on both new files. 241 tests still green. |
 | 2026-08-02T14:15Z | WU-6 | 20 | **Version-placeholder checklist for Sortie 20 — six substitution sites** | `README.md` ×3 (SwiftPM `exact:` pin, `gh release download`, and an HTML comment marking the block), `CHANGELOG.md` ×1 (`## [Unreleased] — <BETA_TAG>`), `AGENTS.md` ×1 (Current version section), and **`Sources/RepartoCLICore/RepartoVersion.swift`'s `RepartoVersion.current = "0.0.0-dev"`** — the one site inside `Sources/`, out of scope for Sortie 19 and therefore easy to miss. A release where the binary reports one version and the README pins another is the failure this checklist exists to prevent. |
 | 2026-08-02T14:15Z | — | — | **Plan inaccuracy found: the two reference repos do NOT share a `CLAUDE.md` pattern** | Sortie 19 task 5 says to symlink or copy "matching SwiftEscribo and SwiftProyecto", as though they agree. They do not. **SwiftProyecto symlinks**; **SwiftEscribo maintains distinct hand-written condensed `CLAUDE.md`/`GEMINI.md` files** that summarize and link back to `AGENTS.md`. Only the symlink shape satisfies this sortie's own exit criterion (identical content by SHA-256 or `readlink`), so the agent followed SwiftProyecto and said so. Worth recording because the plan asserts a house convention that is not actually uniform across the house. |
