@@ -89,11 +89,11 @@ iteration: 1
 
 ### WU-4 Acceptance Gates
 - Work unit state: **RUNNING** — gate opened, WU-3 COMPLETED (layer 2 → 3)
-- Current sortie: 13 of 4 (IDs: 13, 14, 15, 16)
+- Current sortie: 14 of 4 (IDs: 13 ✅, 14, 15, 16)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
-- Complexity score: 11
+- Complexity score: 9
 - Attempt: 1 of 3
 - Notes: Sortie 13 pins the SHA-256 anchors for every WU-4 gate. Parallel Group 2 is **not** being used — see D-SUP-12.
 
@@ -137,7 +137,8 @@ iteration: 1
 | WU-3 | 11 | COMPLETED | 1/3 | sonnet | 12 | af1d16af625e3e00e | 2026-08-02T08:50Z |
 | WU-3 | 12 | COMPLETED | 1/3 | opus | 13 | a0a04d08573c86d7f | 2026-08-02T09:15Z |
 | WU-3 | 12a | COMPLETED | 1/3 | sonnet | 7 | a3465a17ca5170f07 | 2026-08-02T09:50Z |
-| WU-4 | 13 | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T10:15Z |
+| WU-4 | 13 | COMPLETED | 1/3 | sonnet | 11 | abfaddc0a867593f4 | 2026-08-02T10:15Z |
+| WU-4 | 14 | DISPATCHED | 1/3 | sonnet | 9 | (pending) | 2026-08-02T10:45Z |
 
 ---
 
@@ -155,6 +156,11 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T10:45Z | WU-4 | 13 | **Sortie 13 COMPLETED** | Commit `73533e0`. All 14 criteria re-verified: four fixtures tracked under `Tests/SwiftRepartoTests/Fixtures/`, `Tests/Fixtures/` **gone** (consolidated per directive A), `resources: [.copy("Fixtures")]` at `Package.swift:88-89` with no `.process`, `intrusive-memory`/`sibling` greps still 0, `Package.resolved` still exactly two pins, zero `/Users/` in `Tests/`. **206 tests green on both destinations** — `Bundle.module` resolves under the simulator, which was the real risk in switching off `#filePath`. |
+| 2026-08-02T10:45Z | WU-4 | 13 | Directive C honored: fixtures generated from the library, then the generator **deleted** | A throwaway `ZZZScratchFixtureGenerator.swift` imported the PROJECT fixture, called `generate`, and wrote to the scratchpad **outside the package** — never under `Fixtures/`. Its output was spliced with a hand-written body by `cat` concatenation to guarantee byte fidelity, then the generator was removed and its absence verified. This is what makes the anchors meaningful: a fixture the suite can regenerate would just re-derive whatever the code currently does and agree with itself. |
+| 2026-08-02T10:45Z | WU-4 | 13 | Confirmation worth recording: **all ten accumulated fixture constraints held exactly as stated** | Nothing in directive D turned out wrong or incomplete once fixtures were generated through the library rather than hand-typed. The `bio:` value's single-quoting (its embedded `: ` forces it) was a correctly predicted instance. `all-fields-CAST.md`'s `appearance:` keys emitted lexicographically sorted, independently confirming Sortie 8a's nested-mapping sort reaches that depth in real emitted output. |
+| 2026-08-02T10:45Z | WU-4 | 14 | **Self-inflicted grep trap to fix as Sortie 14's task 0** | `legacy-unversioned-CAST.md`'s **body prose** contains the literal string `schemaVersion` (line 20: "It has no `schemaVersion` key…"), so `grep -c 'schemaVersion' <that file>` returns **1**, not 0. Its front matter is correctly free of the key — verified by the supervisor reading lines 1-12, and by `document.isUnversioned == true` in test. But Sortie 13's own exit criterion says "carries no `schemaVersion` key, **verified by grep**", and a literal reading of that criterion **fails**. This is the same string-match-for-semantics defect the mission has hit five times, except this one was authored *by* a sortie rather than inherited from the plan. Fixing the prose is cheaper and more honest than teaching every future gate to scope its grep to the front matter. |
+| 2026-08-02T10:45Z | WU-4 | 15 | Note for Sorties 15/16 | `swift format lint --strict` caught a real naming violation in Sortie 13's new `TestFixture.swift` (`extension_` — a trailing underscore violates AlwaysUseLowerCamelCase). It is a **hard CI gate** since Sortie 8, not a style nit. Any sortie authoring new Swift files should run the lint locally before handing off. |
 | 2026-08-02T10:15Z | WU-3 | 12a | **Sortie 12a COMPLETED — WU-3 CLOSED** | Commit `fac64fd`. **191 insertions, 297 deletions** — a net removal, which is what a real deduplication looks like; `ProjectCastImporter.swift` alone went +12/-129. `FrontMatterSplit`, `ScannedLine`, `splitFrontMatter`, `scanLine`, `isDelimiterLine`, and `failureMessage(for:)` moved from `private static` members to module-scope `internal` declarations, mirroring `relativizingPaths(in:to:)`'s own pattern. The importer now runs the identical `Array(content.utf8)` → `splitFrontMatter(bytes)` path as the parser and discards `split.body`, still passing `body: ""` explicitly. **Zero test files modified**, which is the proof that no behavior moved. |
 | 2026-08-02T10:15Z | WU-3 | 12a | Honest finding: the duplication was **latent, not active** | The agent reports the two scanners were behaviorally equivalent for every case the 199 tests exercise — both treat CRLF as one terminator, both reject a lone `\r`, both require an opening delimiter on line 1, both reject `----`. **No divergence existed yet.** The sortie removed a risk rather than fixing a bug: it was one edit to trailing-whitespace tolerance or terminator rules, made in only one copy, away from becoming real — and no WU-4 gate would have caught it, since each path is tested against itself. |
 | 2026-08-02T10:15Z | — | — | **GATE: layer 2 → layer 3.** WU-4 set to RUNNING, Sortie 13 DISPATCHED | WU-3's ten sorties (five from the plan, five inserted) all COMPLETED and independently verified. |
