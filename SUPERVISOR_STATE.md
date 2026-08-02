@@ -78,13 +78,13 @@ iteration: 1
 
 ### WU-2 Core Model
 - Work unit state: **RUNNING** — gate opened, WU-1 COMPLETED (layer 0 → 1)
-- Current sortie: **5a** of 4 (IDs: 5 ✅, **5a — inserted**, 6, 7)
+- Current sortie: 6 of 4 (IDs: 5 ✅, 5a ✅, 6, 7)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: sonnet
-- Complexity score: 11
+- Model: opus
+- Complexity score: 23
 - Attempt: 1 of 3
-- Notes: Sortie 5 vendored `AnyCodable` clean, then found it **cannot represent null**. Sortie 5a fixes that before Sortie 6 builds `extraKeys` on top of it. See D-SUP-7.
+- Notes: `AnyCodable` substrate is now null-safe. Sortie 6 builds `Gender` and `CastMember` — the type every remaining sortie manipulates.
 
 ### WU-3 Parse, Serialize, Import
 - Work unit state: NOT_STARTED
@@ -127,7 +127,8 @@ iteration: 1
 | WU-1 | 3 | COMPLETED | 1/3 | opus | 25 | a9430a2acc942541e | 2026-08-02T02:30Z |
 | WU-1 | 4 | COMPLETED | 1/3 | sonnet | 10 | af95ea3d387f4d8b3 | 2026-08-02T02:50Z |
 | WU-2 | 5 | COMPLETED | 1/3 | sonnet | 9 | ac1f28a9c6c485642 | 2026-08-02T03:05Z |
-| WU-2 | 5a | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T03:25Z |
+| WU-2 | 5a | COMPLETED | 1/3 | sonnet | 11 | a204b94ef8cad514e | 2026-08-02T03:25Z |
+| WU-2 | 6 | DISPATCHED | 1/3 | opus | 23 | (pending) | 2026-08-02T03:45Z |
 
 ---
 
@@ -145,6 +146,9 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T03:45Z | WU-2 | 5a | **Sortie 5a COMPLETED — the null gap is closed** | Commit `09ab12e`. All 10 criteria re-verified by the supervisor: `AnyCodableTests.swift` now holds 14 test functions and `git diff --numstat` shows **81 insertions, 0 deletions** — the original eight are byte-identical, as required. `decodeNil()` is the first branch in `init(from:)` (ordering is load-bearing: `try? decode(Bool.self)` must not win on a null), `encode(to:)` calls `encodeNil()` symmetrically, `isNull` is public, no forbidden annotations, both destinations green at 16 tests. Null is stored as the literal 4-byte `Data("null".utf8)`; `Equatable` needed no change because byte comparison already discriminates it from `false`, `0`, `""` (quoted, 2 bytes), `[]`, and `{}`. |
+| 2026-08-02T03:45Z | WU-2 | 6 | **Known gap handed to Sortie 6: a null `AnyCodable` cannot be *constructed* in code, only decoded** | `init<T: Codable>(_:)` routes through `JSONEncoder().encode(value)`, which throws on a top-level nil, and Directive A forbade adding a `static let null` in 5a. Round-trip is unaffected — extras that arrive by decoding carry their nulls correctly, which is all RQ-4 and D-3 require. But if Sortie 6 needs to *create* a null extra programmatically (e.g. through D-8's `setExtra`), it will hit a wall. **Instructed to report rather than work around it**; adding a factory is a one-line supervisor decision, whereas a workaround would bend D-8's API shape. |
+| 2026-08-02T03:45Z | WU-2 | 6 | Two minor `AnyCodable` notes recorded, no action | (1) `Float` is listed in the doc comment's supported primitives but has no explicit arm — it falls through to `Double`, losing precision at the `Float` boundary. No cast-file field is typed `Float`, so this is latent. (2) A bare ISO-8601 date scalar decodes through the `String` arm and is stored as `String` until something calls `.decode(Date.self)`. Correct for this schema; recorded so Sorties 9/10 do not mistake it for a bug. |
 | 2026-08-02T03:25Z | WU-2 | 5 | **Sortie 5 COMPLETED** | Commit `b2edce2`. All 8 criteria re-verified: 8 test functions (exactly), MIT header present with `Copyright (c) 2026 Intrusive Memory`, `public struct AnyCodable: Codable, Sendable, Equatable`, RQ-13 collapse direction documented, zero `@preconcurrency`/`@unchecked Sendable`, `make test` and `make test-ios` both green (10 tests on iOS). Task 3 was a no-op for the declaration — the source was already `public`/`Sendable`, and **this package's strict-concurrency settings produced zero diagnostics SwiftProyecto had not already satisfied**, because the type's sole stored property is a `private let encodedData: Data`. |
 | 2026-08-02T03:25Z | WU-2 | 5a | **D-SUP-7: Sortie 5a inserted — `AnyCodable` cannot represent null, and `extraKeys` is built on it** | The Sortie 5 agent found, and the supervisor confirmed by reading `AnyCodable.init(from:)` directly, that the decoder has **no `decodeNil()` branch**: a null value falls through every `try?` arm to a `Data.self` attempt and throws `DecodingError.dataCorrupted("AnyCodable value cannot be decoded")`. Decoding `{"note": null}` into `[String: AnyCodable]` therefore throws — **and that is precisely the type D-8 specifies for `extraKeys`**. In YAML a bare `bio:` or `appearance:` with no value *is* null, which makes this reachable from ordinary hand-written cast files. Left unfixed it defeats **RQ-4** (unknown keys round-trip verbatim) and **D-3** (an `appearance:` key survives through `extraKeys`), and it would surface as a crash at Sortie 14's round-trip gate rather than here. Fixing the substrate before Sortie 6 designs on top of it is strictly cheaper. |
 | 2026-08-02T03:25Z | WU-2 | 5a | Rejected the two alternatives to fixing `AnyCodable` itself | (1) Typing extras as `[String: AnyCodable?]` contradicts D-8's explicit `public private(set) var extraKeys: [String: AnyCodable]` and pushes the wart into every consumer's call site. (2) Pre-filtering nulls before populating `extraKeys` **silently drops data**, which is the exact failure RQ-4 exists to prevent. Only fixing the type preserves both the declared shape and the round-trip guarantee. |
