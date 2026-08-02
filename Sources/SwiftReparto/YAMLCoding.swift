@@ -124,30 +124,174 @@ func encodeYAML<Value: Encodable>(_ value: Value) throws -> String {
 
 // MARK: - Decoding
 
+// MARK: - The dialect this library reads
+//
+// THIS LIBRARY READS YAML 1.2 CORE-SCHEMA SEMANTICS THROUGH A YAML 1.1 PARSER.
+//
+// libyaml — and therefore Yams — implements YAML 1.1, whose implicit typing
+// rules say that the plain scalars `yes`, `no`, `on`, `off`, `y`, and `n` are
+// booleans. YAML 1.2's core schema narrowed that set to exactly six spellings:
+// `true`, `True`, `TRUE`, `false`, `False`, `FALSE`. Everything else is a
+// string.
+//
+// ## Why the narrower dialect is the one we want (RQ-4)
+//
+// RQ-4 says an unknown per-member key round-trips verbatim. Under YAML 1.1 it
+// does not. A hand-written `retired: no` under an undeclared key is captured by
+// `AnyCodable.init(from:)` — which probes `Bool` before `String` and takes the
+// first success — as the boolean `false`, and re-emitted as `retired: false`.
+// The author's spelling is destroyed on first write. `no` is also the Norwegian
+// BCP-47 language tag, which is not a hypothetical for a cast list.
+//
+// Note that *declared* fields were never exposed to this: every `CastMember`
+// field is `String?`, so nothing on that path ever asks Yams for a `Bool`. It
+// is only the undeclared-key path, where there is no destination type to steer
+// the decode, that YAML 1.1 reaches.
+//
+// ## How the narrowing is implemented
+//
+// `Resolver([.merge])` at `Yams/Sources/Yams/Decoder.swift:147` does NOT do it,
+// and the comment that used to claim otherwise was wrong. That resolver governs
+// a node's *resolved* tag; `Bool.construct` gates on the node's *raw* tag —
+// `if scalar.tag.name == .str { return nil }` (`Constructor.swift:154-157`) —
+// and an unquoted plain scalar's raw tag is `.implicit`, so it sails past the
+// guard into a YAML 1.1 boolean switch over `true/yes/on` and `false/no/off`.
+//
+// So `decodeYAML` parses to a `Node` tree, walks it once, and stamps an
+// explicit `.str` raw tag onto every plain scalar that YAML 1.1 would call a
+// boolean and YAML 1.2's core schema would not. `Bool.construct`'s own guard
+// then does the rest. See `retaggingPlainYAML11Booleans(in:)`.
+//
+// ## What the pass covers, and what it deliberately does not
+//
+// COVERED: plain (unquoted), untagged scalars anywhere in the tree — mapping
+// keys, mapping values, sequence elements, at any depth.
+//
+// NOT COVERED, ON PURPOSE:
+//
+//   * Quoted scalars. `'no'` is already a string; its style and value are left
+//     exactly as parsed.
+//   * Explicitly tagged scalars. `!!bool no` is the author saying "boolean",
+//     and an explicit tag outranks a schema default.
+//   * Null resolution. YAML 1.1 and YAML 1.2 core agree closely enough on
+//     `null` / `Null` / `NULL` / `~` / empty, and `AnyCodable` already handles
+//     null correctly, so nothing here touches it.
+//   * YAML 1.1's *integer* extensions — sexagesimal (`12:34` -> 754) and the
+//     bare-leading-zero octal form (`0755` -> 493). These are a real 1.1-vs-1.2
+//     divergence and they DO reach `AnyCodable`, but by a different mechanism:
+//     `Int.construct` gates on scalar *style*, not on the raw tag
+//     (`Constructor.swift:290-294`), so retagging would not stop them anyway.
+//     Left alone deliberately — narrowing the integer rules is a separate
+//     decision from the boolean one, and it has not been made.
+//
+// ## HONEST LIMITATION: this does not restore byte-verbatim round-tripping
+//
+// It restores the *value*, not the *bytes*. A bare `mood: no` is now captured
+// as the string `"no"` — but the emitter must quote a string that would
+// otherwise re-resolve as a boolean, so it comes back out as `mood: 'no'`. The
+// spelling survives; the quoting does not. Sorties 13/14: a pinned fixture
+// containing a bare `no`/`yes`/`on`/`off` under an undeclared key still fails a
+// SHA-256 byte gate on its first pass. Write it quoted in the fixture. What
+// changed is that the *meaning* no longer flips, which is what RQ-4 was
+// actually asking for.
+
+/// The complete YAML 1.2 core-schema boolean set — six spellings, exact case.
+///
+/// Anything outside this set is a string in YAML 1.2 core, no matter what
+/// YAML 1.1 thought of it. Note this is deliberately case-*sensitive*: `tRue`
+/// is a boolean under YAML 1.1 (Yams lowercases before matching) and a string
+/// under YAML 1.2 core, and this library follows YAML 1.2 core.
+private let yaml12CoreBooleanSpellings: Set<String> = [
+  "true", "True", "TRUE", "false", "False", "FALSE",
+]
+
+/// Every scalar YAML 1.1 resolves to a boolean, lowercased.
+///
+/// `Bool.construct` matches on `scalar.string.lowercased()`
+/// (`Constructor.swift:158-166`), so lowercasing the candidate is what makes
+/// this a faithful mirror of the set Yams will actually accept rather than a
+/// hand-listed sample of it. `y` and `n` are in YAML 1.1's boolean production
+/// but absent from Yams' switch; they are listed anyway so that a Yams release
+/// which adds them cannot silently reintroduce the bug this pass exists to fix.
+private let yaml11BooleanSpellingsLowercased: Set<String> = [
+  "true", "false", "yes", "no", "on", "off", "y", "n",
+]
+
+/// Returns `node` with every YAML-1.1-only boolean plain scalar retagged
+/// `.str`, at every depth.
+///
+/// One recursive descent, each node visited exactly once, no rescans. The
+/// index ranges below are `Range<Int>` rather than `node.indices` on purpose:
+/// `DefaultIndices` holds a copy of the collection it indexes, which would
+/// force a copy-on-write of the whole mapping on every single element
+/// assignment and turn this walk quadratic.
+private func retaggingPlainYAML11Booleans(in node: Node) -> Node {
+  switch node {
+  case .scalar(var scalar):
+    // `.implicit` means "no explicit tag in the source". `.plain` means
+    // "unquoted"; libyaml also reports `.any` for a scalar it did not style,
+    // and Yams' own numeric constructors accept both, so this matches.
+    //
+    // The comparison is `== Tag.implicit` rather than `.tag.name == .implicit`
+    // because `Tag.name` is internal to Yams. `Tag`'s public `==` compares
+    // exactly that name, so this is the same test by a supported route.
+    guard scalar.tag == Tag.implicit,
+      scalar.style == .plain || scalar.style == .any,
+      !yaml12CoreBooleanSpellings.contains(scalar.string),
+      yaml11BooleanSpellingsLowercased.contains(scalar.string.lowercased())
+    else {
+      return node
+    }
+
+    // `copy(with:)` rather than a fresh `Tag`, so the node keeps the resolver
+    // and constructor the parser gave it and only the name changes. Assigning
+    // `scalar.string` would be a bug here: its `didSet` resets the tag to
+    // `.implicit` and would undo this on the spot.
+    scalar.tag = scalar.tag.copy(with: .str)
+    return .scalar(scalar)
+
+  case .mapping(var mapping):
+    for index in mapping.startIndex..<mapping.endIndex {
+      let pair = mapping[index]
+      mapping[index] = (
+        key: retaggingPlainYAML11Booleans(in: pair.key),
+        value: retaggingPlainYAML11Booleans(in: pair.value)
+      )
+    }
+    return .mapping(mapping)
+
+  case .sequence(var sequence):
+    for index in sequence.startIndex..<sequence.endIndex {
+      sequence[index] = retaggingPlainYAML11Booleans(in: sequence[index])
+    }
+    return .sequence(sequence)
+
+  case .alias:
+    // An alias carries no scalar of its own; the node it points at was already
+    // visited where it was defined.
+    return node
+  }
+}
+
 /// Deserializes a `Codable` value from a YAML document.
 ///
-/// This is the single ingest path for everything this library reads.
-///
-/// ## The plain-scalar behavior this depends on (AR-2)
-///
-/// `YAMLDecoder` builds its parser as `Resolver([.merge])` rather than
-/// `Resolver.default` (`Yams/Sources/Yams/Decoder.swift:147`). The consequence
-/// is the one this library cares about most: the `Codable` path performs no
-/// implicit YAML 1.1 type resolution, so a plain scalar arrives tagged `.str`
-/// and the destination Swift type decides what it is. `language: no` therefore
-/// decodes to the `String` `"no"` and not to `false`.
-///
-/// That behavior is deliberate upstream but undocumented, so it is pinned by
-/// regression test rather than trusted. See `YAMLCodingTests`.
+/// This is the single ingest path for everything this library reads, and the
+/// one place the YAML 1.2 core-schema narrowing described above is applied.
+/// Anything that decodes YAML by another route gets YAML 1.1 and its booleans;
+/// that is a second reason — beyond D-1's swappability argument — that this is
+/// the only file permitted to `import Yams`.
 ///
 /// - Parameters:
 ///   - type: The type to decode.
 ///   - yaml: The YAML document text. For a `CAST.md` this is the front matter
 ///     only, already split from the body by the caller.
 /// - Returns: The decoded value.
-/// - Throws: Whatever the decoded type throws — note that `CastDocument`
-///   throws `CastParseError` directly, not `DecodingError` — or a
-///   `DecodingError` for malformed YAML.
+/// - Throws: A `DecodingError`. Note that this includes errors the decoded type
+///   raised itself: Yams wraps any non-`DecodingError` thrown during decoding —
+///   `CastDocument.init(from:)`'s `CastParseError`, for one — in
+///   `DecodingError.dataCorrupted` with the original hanging off
+///   `underlyingError`. That wrapping is reproduced faithfully below rather
+///   than quietly changed, because changing it is a separate decision.
 func decodeYAML<Value: Decodable>(_ type: Value.Type, from yaml: String) throws -> Value {
   // Same rule as the encoder: constructed per call, never stored. `YAMLDecoder`
   // is also a non-`Sendable` `public class` with mutable options.
@@ -158,5 +302,35 @@ func decodeYAML<Value: Decodable>(_ type: Value.Type, from yaml: String) throws 
   // branch that could behave differently on differently-encoded input.
   decoder.options.encoding = .utf8
 
-  return try decoder.decode(Value.self, from: yaml)
+  // Everything below reproduces `YAMLDecoder.processYamlNode`
+  // (`Yams/Sources/Yams/Decoder.swift:141-166`) with the retagging walk spliced
+  // between compose and decode. Going through `decode(_:from: String)` instead
+  // would give the retagging pass nothing to retag — that overload composes and
+  // decodes in one step and never hands out the `Node`.
+  //
+  // `Resolver.basic.appending(.merge)` is `Resolver([.merge])`; Yams' array
+  // initializer is internal, and `basic` is the empty-rule resolver, so the two
+  // are the same object graph by a public route. Keeping the resolver identical
+  // matters: merge keys (`<<`) must still resolve, and nothing else should.
+  let parser = try Parser(
+    yaml: yaml,
+    resolver: Resolver.basic.appending(.merge),
+    encoding: .utf8)
+
+  do {
+    // The parser owns the `Anchor` objects; `Node` refers to them weakly. It
+    // has to outlive the decode or an anchored document loses its anchors.
+    return try withExtendedLifetime(parser) {
+      let parsed = try parser.singleRoot() ?? Node("")
+      return try decoder.decode(Value.self, from: retaggingPlainYAML11Booleans(in: parsed))
+    }
+  } catch let error as DecodingError {
+    throw error
+  } catch {
+    throw DecodingError.dataCorrupted(
+      .init(
+        codingPath: [],
+        debugDescription: "The given data was not valid YAML.",
+        underlyingError: error))
+  }
 }

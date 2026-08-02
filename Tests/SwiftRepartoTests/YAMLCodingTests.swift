@@ -19,6 +19,13 @@
 // These go through `encodeYAML`/`decodeYAML` rather than `YAMLEncoder`
 // directly, because an assertion that bypassed the wrapper would pass while
 // the shipping configuration was broken.
+//
+// Sortie 8b added a second subject: the *dialect*. `decodeYAML` now narrows
+// libyaml's YAML 1.1 implicit typing to the YAML 1.2 core schema for booleans,
+// by retagging plain scalars in the parsed `Node` tree. The tests under
+// "Task 7 / AR-2" own that narrowing end to end — the tokens it must convert,
+// the six spellings it must leave alone, the quoted forms it must not touch,
+// and the fact that it reaches every depth.
 
 import Foundation
 import XCTest
@@ -358,60 +365,64 @@ final class YAMLCodingTests: XCTestCase {
     XCTAssertEqual(reDecoded.language, "no")
   }
 
-  /// Every YAML 1.1 boolean look-alike, under an *undeclared* key.
+  /// Every YAML 1.1 boolean look-alike, under an *undeclared* key, is a
+  /// `String` carrying its original spelling.
   ///
-  /// ## This test pins DISCOVERED behavior, and it is not what Sortie 8 was told to expect
+  /// ## This test changed in Sortie 8b, deliberately, by user decision
   ///
-  /// The sortie brief asserted that `no`, `yes`, `on`, `off`, `y`, and `n`
-  /// under an unknown key are each captured as a `String` and re-emitted
-  /// unchanged. **Four of the six are not.** The behavior below is what Yams
-  /// 6.2.2 actually does, measured, and it is pinned here rather than wished
-  /// away. Read the mechanism before changing anything:
-  ///
+  /// Sortie 8 measured the opposite and pinned it: `yes`, `no`, `on`, and `off`
+  /// under an unknown key were captured as `Bool` and re-emitted as
+  /// `true`/`false`, destroying the author's spelling. The mechanism was that
   /// `Resolver([.merge])` (`Decoder.swift:147`) governs a node's *resolved*
-  /// tag. It does not change the node's *raw* tag, which for an unquoted plain
-  /// scalar is `.implicit`. `Bool.construct` gates on the raw tag —
+  /// tag while `Bool.construct` gates on its *raw* tag —
   /// `if scalar.tag.name == .str { return nil }` (`Constructor.swift:154-157`)
-  /// — so `.implicit` sails straight past the guard and into a YAML 1.1
-  /// boolean switch over `true/yes/on` and `false/no/off`
-  /// (`Constructor.swift:158-166`).
+  /// — and an unquoted plain scalar's raw tag is `.implicit`, so it reached
+  /// YAML 1.1's boolean switch. Declared fields were never affected, because
+  /// every `CastMember` field is `String?` and nothing on that path ever asks
+  /// for a `Bool`.
   ///
-  /// A *declared* field is safe because its destination type is `String?`, and
-  /// nothing ever asks for a `Bool`. An *undeclared* key is not, because
-  /// `AnyCodable.init(from:)` probes `Bool` → `Int` → `Double` → `String` in
-  /// that order and the first success wins. `y` and `n` survive only because
-  /// they are absent from Yams' boolean switch, not because anything protects
-  /// them.
+  /// **The user decided this library reads the YAML 1.2 core schema.** Under
+  /// that schema the boolean set is exactly `true`/`True`/`TRUE`/`false`/
+  /// `False`/`FALSE`; `yes`, `no`, `on`, `off`, `y`, and `n` are strings.
+  /// `decodeYAML` now walks the parsed `Node` tree and stamps an explicit
+  /// `.str` raw tag onto every plain scalar in that gap, which turns
+  /// `Bool.construct`'s own guard against it. See the dialect comment block at
+  /// the top of `YAMLCoding.swift`.
   ///
-  /// ## What this costs, precisely
+  /// This test is the pin for that decision. **A failure here means the
+  /// retagging pass stopped working, not that the expectation is stale** — the
+  /// four uppercase variants are included because Yams matches booleans on
+  /// `scalar.string.lowercased()`, so a pass that only handled lowercase would
+  /// leave `NO` resolving to `false`.
   ///
-  /// A hand-written `retired: no` under an unknown key is captured as the
-  /// boolean `false` and re-emitted as `retired: false`. The *meaning* is
-  /// preserved — YAML 1.1 says that scalar is a boolean — but the spelling is
-  /// normalized on first write, in the same family as the `schemaVersion`
-  /// stamp (D-5).
+  /// ## What it still does not buy (Sorties 13/14)
   ///
-  /// RQ-11 is not violated: it guarantees `generate(parse(x)) == x` for `x`
-  /// this library emitted, and this library emits `false`, which is stable
-  /// forever after. **Sorties 13/14: a pinned fixture containing an unquoted
-  /// `no`/`yes`/`on`/`off` as a whole value under an undeclared key will fail
-  /// the SHA-256 gate on its first pass.** Quote it in the fixture, or expect
-  /// the normalization.
-  ///
-  /// Escalated to the supervisor rather than worked around: the only fixes
-  /// available are in `AnyCodable.init(from:)`'s probe order or in a
-  /// node-retagging pass in `YAMLCoding.swift`, and both are policy decisions
-  /// about which YAML dialect this library speaks.
+  /// The *value* survives; the *bytes* do not. A bare `mood: no` re-emits as
+  /// `mood: 'no'` — quoted, because the emitter must stop the next reader from
+  /// re-resolving it. A pinned fixture containing a bare `no`/`yes`/`on`/`off`
+  /// under an undeclared key still fails a SHA-256 byte gate on its first pass.
+  /// Write it quoted in the fixture.
   func testBooleanLookalikesUnderAnUnknownKey() throws {
-    // Not in Yams' boolean switch, so they arrive as strings.
-    for token in ["y", "n"] {
+    let tokens = [
+      "no", "No", "NO",
+      "yes", "Yes", "YES",
+      "on", "On", "ON",
+      "off", "Off", "OFF",
+      "y", "Y", "n", "N",
+    ]
+
+    for token in tokens {
       let member = try decodeMemberWithMood(token)
       let captured = try XCTUnwrap(member[extra: "mood"], "`mood` was not captured for '\(token)'")
 
       XCTAssertEqual(
-        try captured.decode(String.self), token, "'\(token)' was not captured as a String")
-      XCTAssertNil(try? captured.decode(Bool.self), "'\(token)' was captured as a Bool")
+        try captured.decode(String.self), token,
+        "'\(token)' was not captured as the String '\(token)'")
+      XCTAssertNil(
+        try? captured.decode(Bool.self),
+        "'\(token)' was captured as a Bool — the YAML 1.2 core retagging pass missed it")
 
+      // The spelling, not merely the meaning, survives re-emission.
       let reEmitted = try encodeYAML(member)
       let reDecoded = try decodeYAML(CastMember.self, from: reEmitted)
 
@@ -419,28 +430,109 @@ final class YAMLCodingTests: XCTestCase {
         try XCTUnwrap(reDecoded[extra: "mood"]).decode(String.self), token,
         "'\(token)' changed on re-emission. Emitted:\n\(reEmitted)")
       XCTAssertEqual(reDecoded, member, "'\(token)' did not round-trip. Emitted:\n\(reEmitted)")
+      XCTAssertFalse(
+        reEmitted.contains("mood: true") || reEmitted.contains("mood: false"),
+        "'\(token)' was normalized to a boolean spelling. Emitted:\n\(reEmitted)")
     }
 
-    // In Yams' boolean switch, so they arrive as `Bool` and re-emit with the
-    // canonical spelling. See the discussion above before "fixing" this.
-    for (token, expected) in [("yes", true), ("on", true), ("no", false), ("off", false)] {
+    // The exact bytes, pinned so the honest limitation above is not a claim in
+    // a comment: a bare `mood: no` comes back as `mood: 'no'`. The spelling
+    // survives. The plain style does not, and cannot — an unquoted `no` on the
+    // way out would be a boolean to any other YAML 1.1 reader of the file.
+    let reEmittedBareNo = try encodeYAML(try decodeMemberWithMood("no"))
+    XCTAssertTrue(
+      reEmittedBareNo.contains("mood: 'no'"),
+      "a bare `mood: no` did not re-emit as `mood: 'no'`. Emitted:\n\(reEmittedBareNo)")
+  }
+
+  /// The six YAML 1.2 core-schema boolean spellings are still booleans.
+  ///
+  /// The retagging pass narrows YAML 1.1's boolean set; it must not empty it.
+  /// If this goes red alongside
+  /// ``testBooleanLookalikesUnderAnUnknownKey`` staying green, the guard in
+  /// `retaggingPlainYAML11Booleans(in:)` has been inverted or its
+  /// case-sensitive allow-list has lost an entry.
+  func testYAML12CoreBooleansStillDecodeAsBool() throws {
+    for (token, expected) in [
+      ("true", true), ("True", true), ("TRUE", true),
+      ("false", false), ("False", false), ("FALSE", false),
+    ] {
       let member = try decodeMemberWithMood(token)
       let captured = try XCTUnwrap(member[extra: "mood"], "`mood` was not captured for '\(token)'")
 
       XCTAssertEqual(
         try captured.decode(Bool.self), expected,
-        "'\(token)' is no longer captured as a Bool — the discovered behavior changed")
+        "'\(token)' is a YAML 1.2 core boolean and was not decoded as one")
 
+      // Case is normalized to the canonical spelling on re-emission, which is
+      // what a boolean *is* — this is not the string path.
       let reEmitted = try encodeYAML(member)
       XCTAssertTrue(
         reEmitted.contains("mood: \(expected)"),
-        "'\(token)' did not normalize to `\(expected)`. Emitted:\n\(reEmitted)")
+        "'\(token)' did not re-emit as the boolean `\(expected)`. Emitted:\n\(reEmitted)")
 
-      // Whatever the spelling, the value is stable from the first write on,
-      // which is what RQ-11 actually requires.
       let reDecoded = try decodeYAML(CastMember.self, from: reEmitted)
       XCTAssertEqual(reDecoded, member, "'\(token)' did not round-trip. Emitted:\n\(reEmitted)")
     }
+  }
+
+  /// A boolean look-alike inside a *nested* mapping under an undeclared key.
+  ///
+  /// The retagging walk descends; this is the test that proves it. A pass that
+  /// only inspected the document's top-level mapping values would leave
+  /// `flags.retired` as `false` and `tags[1]` as `true`, and every other
+  /// boolean test in this file would still pass.
+  ///
+  /// It also guards Sortie 8a: the nested mapping must still emit with its keys
+  /// sorted at every depth after the walk has rewritten the node tree.
+  func testBooleanLookalikesAreRetaggedInsideANestedExtra() throws {
+    let member = try decodeYAML(
+      CastMember.self,
+      from: """
+        character: THE PRACTITIONER
+        flags:
+          retired: no
+          nested:
+            deeper:
+              active: yes
+          tags:
+            - off
+            - "on"
+            - true
+        """)
+
+    let flags = try XCTUnwrap(member[extra: "flags"], "`flags` was not captured")
+    let decoded = try flags.decode([String: AnyCodable].self)
+
+    XCTAssertEqual(
+      try XCTUnwrap(decoded["retired"]).decode(String.self), "no",
+      "a boolean look-alike one level down was not retagged")
+
+    let nested = try XCTUnwrap(decoded["nested"]).decode([String: [String: AnyCodable]].self)
+    XCTAssertEqual(
+      try XCTUnwrap(nested["deeper"]?["active"]).decode(String.self), "yes",
+      "a boolean look-alike three levels down was not retagged")
+
+    let tags = try XCTUnwrap(decoded["tags"]).decode([AnyCodable].self)
+    XCTAssertEqual(tags.count, 3)
+    XCTAssertEqual(
+      try tags[0].decode(String.self), "off",
+      "a boolean look-alike inside a sequence was not retagged")
+    XCTAssertEqual(
+      try tags[1].decode(String.self), "on",
+      "a quoted sequence element did not stay a String")
+    XCTAssertEqual(
+      try tags[2].decode(Bool.self), true,
+      "a YAML 1.2 core boolean inside a sequence stopped being a Bool")
+
+    // Round-trips, and Sortie 8a's every-depth key sorting still holds.
+    let reEmitted = try encodeYAML(member)
+    XCTAssertEqual(
+      try decodeYAML(CastMember.self, from: reEmitted), member,
+      "the nested extra did not round-trip. Emitted:\n\(reEmitted)")
+    XCTAssertEqual(
+      try encodeYAML(try decodeYAML(CastMember.self, from: reEmitted)), reEmitted,
+      "re-emission was not stable. Emitted:\n\(reEmitted)")
   }
 
   /// Quoting is the escape hatch, and it works for every token.
@@ -465,6 +557,30 @@ final class YAMLCodingTests: XCTestCase {
         try XCTUnwrap(reDecoded[extra: "mood"]).decode(String.self), token,
         "quoted '\(token)' changed on re-emission. Emitted:\n\(reEmitted)")
       XCTAssertEqual(reDecoded, member, "quoted '\(token)' did not round-trip")
+    }
+  }
+
+  /// A double-quoted `"no"` is untouched by the retagging pass.
+  ///
+  /// ``testQuotedBooleanLookalikesStayStrings`` covers the single-quoted form.
+  /// This one exists because the retagging guard is written in terms of scalar
+  /// *style*, and `.singleQuoted` and `.doubleQuoted` are two different styles
+  /// — a guard that named only one of them would pass that test and fail here.
+  /// A quoted scalar was already a `String`; the pass must neither change its
+  /// value nor make it stop round-tripping.
+  func testDoubleQuotedBooleanLookalikesAreUnaffected() throws {
+    for token in ["no", "yes", "on", "off", "true", "false", "NO", "Yes"] {
+      let member = try decodeMemberWithMood("\"\(token)\"")
+      let captured = try XCTUnwrap(member[extra: "mood"], "`mood` was not captured for '\(token)'")
+
+      XCTAssertEqual(
+        try captured.decode(String.self), token,
+        "double-quoted '\(token)' was not captured as a String")
+
+      let reEmitted = try encodeYAML(member)
+      XCTAssertEqual(
+        try decodeYAML(CastMember.self, from: reEmitted), member,
+        "double-quoted '\(token)' did not round-trip. Emitted:\n\(reEmitted)")
     }
   }
 
