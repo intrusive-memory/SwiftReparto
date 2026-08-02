@@ -88,21 +88,20 @@ iteration: 1
 - Notes: Sortie 8 owns the encoder configuration that determines whether RQ-11's SHA-256 gate is stable, and pins the undocumented Yams resolver behavior (AR-2). It also inherits the lint cleanup Sortie 3 deferred. Parallel Group 1 (Sorties 11 + 12) opens after Sortie 10.
 
 ### WU-4 Acceptance Gates
-- Work unit state: **RUNNING** — gate opened, WU-3 COMPLETED (layer 2 → 3)
-- Current sortie: 16 of 4 (IDs: 13 ✅, 14 ✅, 15 ✅, 16)
-- Sortie state: DISPATCHED
-- Sortie type: code
-- Model: sonnet
-- Complexity score: 10
-- Attempt: 1 of 3
+- Work unit state: **COMPLETED** — all 4 sorties done (13, 14, 15, 16)
+- Sortie state: COMPLETED
+- Last verified: **Sortie 16 COMPLETED** — `scripts/check-leaf-invariant.sh` exits 0 on `development`, runs as a **step at `tests.yml:54` inside `Test on macOS`** (already a required context), branch protection unchanged at exactly `["Test on macOS","Test on iOS Simulator"]`, scratch branch deleted, only `development` and `main` remain on the remote.
 - Notes: Sortie 13 pins the SHA-256 anchors for every WU-4 gate. Parallel Group 2 is **not** being used — see D-SUP-12.
 
 ### WU-5 CLI
-- Work unit state: NOT_STARTED
-- Current sortie: 17 of 2 sorties (IDs: 17, 18)
-- Sortie state: PENDING
-- Attempt: 0 of 3
-- Notes: Gated on WU-4 COMPLETED.
+- Work unit state: **RUNNING** — gate opened, WU-4 COMPLETED (layer 3 → 4)
+- Current sortie: 17 of 2 (IDs: 17, 18)
+- Sortie state: DISPATCHED
+- Sortie type: code
+- Model: sonnet
+- Complexity score: 11
+- Attempt: 1 of 3
+- Notes: Task 6a's injectable output sink is a **design constraint Sortie 18 cannot retrofit** — getting it wrong means Sortie 18 rewrites this sortie instead of testing it.
 
 ### WU-6 Beta Release
 - Work unit state: NOT_STARTED
@@ -140,7 +139,8 @@ iteration: 1
 | WU-4 | 13 | COMPLETED | 1/3 | sonnet | 11 | abfaddc0a867593f4 | 2026-08-02T10:15Z |
 | WU-4 | 14 | COMPLETED | 1/3 | sonnet | 9 | a3938a18214d1fe60 | 2026-08-02T10:45Z |
 | WU-4 | 15 | COMPLETED | 1/3 | sonnet | 11 | a3a8a5a9e1c856d6e | 2026-08-02T11:15Z |
-| WU-4 | 16 | DISPATCHED | 1/3 | sonnet | 10 | (pending) | 2026-08-02T11:45Z |
+| WU-4 | 16 | COMPLETED | 1/3 | sonnet | 10 | a62b3bc137b0e805f | 2026-08-02T11:45Z |
+| WU-5 | 17 | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T12:20Z |
 
 ---
 
@@ -158,6 +158,10 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T12:20Z | WU-4 | 16 | **Sortie 16 COMPLETED — WU-4 CLOSED. The guard was observed red on a real PR.** | Commit `2570aac`. All 12 criteria re-verified. **The guard genuinely gates**: it is a step inside `Test on macOS`, which branch protection already requires, so a violating PR cannot merge green. Proven by scratch PR #3 — run `30734534929`, step "Check leaf invariant (RQ-INV-1)" failed in 22s, the `Test` step skipped, job red. Both failure modes were carried on the **one** scratch branch, so a single PR proved both. PR closed unmerged, branch deleted, `development`/`main` untouched. |
+| 2026-08-02T12:20Z | WU-4 | 16 | **All four checks were broken locally first — the cheap way to prove a gate** | (1) an `intrusive-memory` mention in `Package.swift`; (2) a third pin in `Package.resolved`; (3) `ArgumentParser` added to the `SwiftReparto` target, caught via `swift package dump-package` rather than a manifest grep — *"the check that matters most now that a CLI exists"*; (4) `import ArgumentParser` in `Sources/SwiftReparto/`. Each produced a legible non-zero failure. **CI cost: 1 run of the 4 budgeted**, because everything provable on a laptop was proved there first. |
+| 2026-08-02T12:20Z | — | — | **GATE: layer 3 → layer 4.** WU-5 set to RUNNING, Sortie 17 DISPATCHED | WU-4's four sorties all COMPLETED and independently verified. 223 tests green. |
+| 2026-08-02T12:20Z | WU-6 | 20 | Cost note from Sortie 16, for the brief | The guard runs before `make test` in the same job, so a violation short-circuits macOS fast — but `Test on iOS Simulator` carries no guard step and still builds a doomed manifest, spending 10×-billed minutes on a PR already known bad. Consistent with the plan (protection needs only the macOS context to catch it) and not worth changing mid-mission; recorded as a small, real inefficiency. |
 | 2026-08-02T11:45Z | WU-4 | 15 | **Sortie 15 COMPLETED** | Commit `33fb4f9`. All 15 criteria re-verified: 7 rejection fixtures tracked, **15** fully-qualified `CastParseError.` assertions, zero `throws: Error.self`, `Sources/` and `Package.swift` untouched, `reject-neither.md` carrying real keys per directive A. **223 tests green on both destinations.** |
 | 2026-08-02T11:45Z | WU-4 | 15 | **Every one of the seven fixtures produced exactly the predicted error on the first run** | `.missingCastKey`, `.missingTypeCast`, `.missingTypeCast`, `.noFrontMatter`, `.invalidYAML(_:)`, `.missingCharacter(index: 0)`, `.unsupportedSchemaVersion(found: 2, supported: 1)`. Nothing adjusted. This independently confirms from the fixture layer that `CastDocument.init(from:)`'s documented check order (version → type → cast → member) is stable and observable, not just an artifact of inline-string tests. |
 | 2026-08-02T11:45Z | **CLEAN** | — | **⚠️ HAZARD FOR THE POST-MISSION `clean` STEP: `/organize-agent-docs` MUST NOT TOUCH `Tests/SwiftRepartoTests/Fixtures/*.md`** | Three rejection fixtures — `reject-cast-only.md`, `reject-neither.md`, `reject-no-frontmatter.md` — **deliberately lack `type:` frontmatter, because that absence is the entire point of those tests.** The global `md-type-frontmatter.sh` hook fires on them. They are also pinned bytes that no process may rewrite (Sortie 13 task 3), and `confessions-CAST.md` / `all-fields-CAST.md` are SHA-256 anchors that Sorties 14 and 15 hash against. **The organizer stamps `updated:` dates and adds frontmatter; running it over `Tests/` would silently break the acceptance gates.** When `clean` runs, scope `/organize-agent-docs` to root-level mission artifacts only and explicitly exclude everything under `Tests/`. |
