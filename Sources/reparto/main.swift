@@ -1,12 +1,33 @@
 // main.swift
 // reparto
 //
-// Executable entry point. Stub only — WU-5 replaces this with the
-// ArgumentParser root command (`validate` and `import`).
-//
-// The target exists from the first sortie so `make release` and the release
-// workflow have something to build long before the commands are real.
+// The thin executable entry point (Sortie 17 task 7). This file constructs
+// the one real OutputSink the program ever uses, hands the parsed command
+// that sink, and does nothing else — no argument handling, no business
+// logic, no direct writes to any stream. Every byte of actual output is
+// produced by RepartoCLICore's commands through the sink they are given
+// here.
 
+import ArgumentParser
 import RepartoCLICore
 
-RepartoCLI.main()
+let sink = ConsoleOutputSink()
+
+do {
+  var command = try RepartoCommand.parseAsRoot()
+
+  switch command {
+  case var validate as ValidateCommand:
+    validate.sink = sink
+    command = validate
+  case var importCommand as ImportCommand:
+    importCommand.sink = sink
+    command = importCommand
+  default:
+    break
+  }
+
+  try command.run()
+} catch {
+  RepartoCommand.exit(withError: error)
+}
