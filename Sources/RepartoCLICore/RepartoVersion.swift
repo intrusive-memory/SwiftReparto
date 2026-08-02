@@ -35,5 +35,9 @@
 public enum RepartoVersion {
 
   /// The released version, without the tag's leading `v`.
-  public static let current: String = "0.1.0"
+  ///
+  /// The `-dev` suffix marks a development snapshot cut after the named
+  /// release — it is stripped (and the version bumped) at the next ship
+  /// cycle, and is never tagged or released.
+  public static let current: String = "0.1.0-dev"
 }

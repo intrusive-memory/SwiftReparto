@@ -39,6 +39,10 @@ The constant and this section must always name the same release —
 `reparto --version` reads the constant and this file is where a human or
 agent looks first. A future release bumps both together.
 
+On the `development` branch the constant carries a `-dev` marker
+(`0.1.0-dev`): post-`0.1.0` development, next release TBD. The marker is
+stripped when the next version is bumped and is never tagged or released.
+
 ## Hard constraints
 
 - **The leaf invariant (RQ-INV-1).** SwiftReparto declares no dependency on
