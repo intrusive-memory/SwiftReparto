@@ -1,0 +1,27 @@
+# Swift Package Manager build products
+.build/
+
+# Xcode's per-package state. Currently only empty directories, so it does not
+# show in `git status` — it fills the moment anyone opens the package in Xcode.
+.swiftpm/
+
+# Xcode build intermediates
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Code coverage profiles
+*.profraw
+*.profdata
+
+# `make release` / `make install` drop the built CLI here.
+/bin/
+
+# macOS
+.DS_Store
+
+# NOTE: Package.resolved is deliberately TRACKED, reversing the org's
+# library-package convention (see `spm-package-audit`). This package ships an
+# executable, and a binary built by CI from an unpinned dependency graph is not
+# reproducible. SwiftProyecto, which also ships a CLI, tracks it for the same
+# reason. Do not add it here.
