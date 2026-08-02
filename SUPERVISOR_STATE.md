@@ -56,13 +56,10 @@ iteration: 1
 ## Work Unit State
 
 ### WU-1 Repository Buildout
-- Work unit state: RUNNING
-- Current sortie: 4 of 5 (IDs: 1 ✅, 1a ✅, 2 ✅, 3 ✅, 4)
-- Sortie state: DISPATCHED
-- Sortie type: command
-- Model: sonnet
-- Complexity score: 10
-- Attempt: 1 of 3
+- Work unit state: **COMPLETED** — all 5 sorties done (1, 1a, 2, 3, 4)
+- Current sortie: — (unit closed)
+- Sortie state: COMPLETED
+- Last verified: **Sortie 4 COMPLETED** — protection re-read from the API by the supervisor. `main`: contexts exactly `["Test on macOS","Test on iOS Simulator"]`, `strict: true`, `enforce_admins: false`, `allow_force_pushes: false`, `allow_deletions: false`, `required_approving_review_count: 0`. `development`: same two contexts, length 2, `strict: true`. Working tree clean — the PUT payloads stayed in the scratchpad.
 - Last verified: **Sortie 1a COMPLETED** — all 7 exit criteria re-verified by the supervisor independently of the agent's report (commit `5c5da3d` is the sole commit; `git status --porcelain` empty; both forbidden greps return 0; `IOS_DESTINATION` defined once at line 44 as `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`; `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES` pinned; all nine targets present — build, test, test-ios, release, install, resolve, clean, format, help; `bin` ignored; `Package.resolved` tracked; 13 files tracked, nothing from `.build/` or `bin/`).
 - Notes: Repo now has its build interface and its recovery point. Every later exit criterion phrased as a `make` target has something real to call.
 
@@ -80,11 +77,14 @@ iteration: 1
 - Carried forward: benign `xcodebuild` noise on every package-scheme invocation (`IDERunDestination: Supported platforms … is empty`, `IDELogStore: Failed to move log store`). Neither affects exit status. Expect them in CI logs; do not chase them.
 
 ### WU-2 Core Model
-- Work unit state: NOT_STARTED
-- Current sortie: 5 of 3 sorties (IDs: 5, 6, 7)
-- Sortie state: PENDING
-- Attempt: 0 of 3
-- Notes: Gated on WU-1 COMPLETED (layer 0 → 1).
+- Work unit state: **RUNNING** — gate opened, WU-1 COMPLETED (layer 0 → 1)
+- Current sortie: 5 of 3 (IDs: 5, 6, 7)
+- Sortie state: DISPATCHED
+- Sortie type: code
+- Model: sonnet
+- Complexity score: 9
+- Attempt: 1 of 3
+- Notes: Sortie 5 vendors `AnyCodable`, the substrate under `extraKeys` and therefore under RQ-4, D-3's deferral, and D-8's accessors.
 
 ### WU-3 Parse, Serialize, Import
 - Work unit state: NOT_STARTED
@@ -125,7 +125,8 @@ iteration: 1
 | WU-1 | 2 | PARTIAL | 1/3 | sonnet | 11 | a1b1c3abab6f5076a | 2026-08-02T01:48Z |
 | WU-1 | 2 (cont.) | COMPLETED | 1/3 | sonnet | 11 | a17df500b5a8af4d7 | 2026-08-02T02:05Z |
 | WU-1 | 3 | COMPLETED | 1/3 | opus | 25 | a9430a2acc942541e | 2026-08-02T02:30Z |
-| WU-1 | 4 | DISPATCHED | 1/3 | sonnet | 10 | (pending) | 2026-08-02T02:50Z |
+| WU-1 | 4 | COMPLETED | 1/3 | sonnet | 10 | af95ea3d387f4d8b3 | 2026-08-02T02:50Z |
+| WU-2 | 5 | DISPATCHED | 1/3 | sonnet | 9 | (pending) | 2026-08-02T03:05Z |
 
 ---
 
@@ -143,6 +144,9 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T03:05Z | WU-1 | 4 | **Sortie 4 COMPLETED — WU-1 CLOSED** | All 7 criteria re-verified by the supervisor via API readback. No direct-push enforcement test was attempted, per D-11: with `enforce_admins: false` the sole maintainer is an admin who bypasses required checks, so a successful push would prove nothing. GitHub added a derived `checks` sub-array (per-context `app_id` bindings) and defaulted ~9 permissive booleans not in the PUT body — additive and consistent with intent, not a deviation. |
+| 2026-08-02T03:05Z | — | — | **GATE: layer 0 → layer 1.** WU-2 set to RUNNING, Sortie 5 to PENDING then DISPATCHED | WU-1's five sorties are all COMPLETED and independently verified. No other work unit was eligible — the plan's layers are strict gates and WU-3…WU-6 each depend on the layer below. |
+| 2026-08-02T03:05Z | WU-2 | 5 | **Plan defect caught pre-dispatch (third of its kind): Sortie 5's MIT-header instruction is unsatisfiable as written** | Task 1 says copy `SwiftProyecto/.../AnyCodable.swift` "preserving the MIT header", and exit criterion 5 asserts "the file retains its MIT header". **The source file has no MIT header** — it opens with `import Foundation` and a doc comment; `grep -in 'mit\|copyright\|licen'` finds nothing. The sibling `CastMember.swift` *does* carry the block, which is what Sortie 1a modeled `LICENSE` on, and is evidently what the plan author had in mind. The supervisor directed the agent to **add** the MIT block (modeled on `CastMember.swift`, year 2026, "Intrusive Memory", matching our `LICENSE`) rather than preserve a nonexistent one. Intent is served — a vendored file should carry its provenance and license — but the verb in the plan is wrong. Note this also makes the vendored file the only one in `Sources/` with a full MIT block; Sortie 1's files use a lighter `// File.swift` header. That asymmetry is correct: the vendored file is the one with external provenance. |
 | 2026-08-02T02:50Z | WU-1 | 3 | **Sortie 3 COMPLETED** (supervisor closed the one blocked step) | Repo `intrusive-memory/SwiftReparto` created **private**, `main` + `development` exist, default is `development`, topics set, three workflows landed, `actionlint` clean, **zero red CI runs across two PRs**. The agent hit a permission denial writing to `main` and correctly stopped rather than working around it, reporting PARTIAL with PR #2 green and clean. The supervisor completed it — which is right per the plan's own division of labor ("every `git` commit, every `gh` call … supervising agent"). |
 | 2026-08-02T02:50Z | WU-1 | 3 | **Landed via fast-forward, not `gh pr merge`** | `gh pr merge --merge` would have created a new commit on `main` carrying **no check runs**, leaving exit criterion 4 (`commits/main/check-runs` includes both test contexts) permanently unsatisfiable. `origin/main` was a strict ancestor of `origin/development`, so `git push origin origin/development:main` fast-forwarded `main` to `6efa3cf` — the exact commit the three green checks are attached to. GitHub auto-closed PR #2 as MERGED (`mergedAt: 2026-08-02T02:24:41Z`). All 11 criteria verified green afterward. `release.yml` now exists on `main`, which Sortie 20 requires for the beta to produce a binary asset. |
 | 2026-08-02T02:50Z | WU-1 | 3 | **Carry-forward to Sortie 8 (hard requirement, not advisory)** | `swift format lint --strict` is **red** on `Tests/SwiftRepartoTests/PackageSmokeTests.swift:18` (`OrderedImports`). Sortie 3 gated `Sources/` strictly and demoted `Tests/` to advisory annotations rather than adding a repo-wide `.swift-format` that disables a useful rule for one soon-to-be-deleted file — the right call. **Sortie 8 replaces that file wholesale and must then delete the advisory step and add `Tests` to the strict step**, per the comments in `lint.yml`. Until it does, `make format` would rewrite a frozen file, so the repo is not format-clean under the default config. |
