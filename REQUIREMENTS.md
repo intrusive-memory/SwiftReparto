@@ -1,9 +1,9 @@
 ---
 type: requirements
 title: SwiftReparto — Requirements
-status: draft
+status: beta
 created: 2026-08-01
-target_version: 1.0.0
+target_version: first beta release
 ---
 
 # SwiftReparto — Requirements
@@ -54,7 +54,7 @@ The boundary is a **contract**, not a convention. Each row is enforceable by ins
 
 | Package | Owns | Never touches |
 |---|---|---|
-| **SwiftReparto** | `CAST.md`. The cast schema, its parser, its serializer, its losslessness guarantees | Audio, images, models, `PROJECT.md`, the filesystem beyond the one file it is handed |
+| **SwiftReparto** | `CAST.md`. The cast schema, its parser, its serializer, its losslessness guarantees | Audio, images, models, writing `PROJECT.md`, reading any `PROJECT.md` key other than `cast:`, the filesystem beyond the one file it is handed |
 | **SwiftEchada** | Voice identity. Generates `.vox` from `voicePrompt`, records the pointer | The `CAST.md` byte stream — it mutates a `CastDocument` and hands it back to Reparto to write |
 | **SwiftSemblanzas** | Non-voice identity. Trains per-character LoRA adapters, records the pointers | Same — never serializes `CAST.md` itself |
 | **SwiftProyecto** | `PROJECT.md`. Project identity, episode discovery, variants, TTS config | Cast, in any form. No `CastMember`, no `cast:` key, no SwiftReparto dependency |
@@ -69,7 +69,8 @@ SwiftEchada depends on SwiftProyecto (its CLI reads `PROJECT.md` for `title`, `e
 `filePattern`, `tts.model`), so `SwiftProyecto → SwiftEchada` would be a package-level cycle. SwiftPM
 detects cycles at package granularity and fails at manifest load — there is no target-level escape.
 
-The only permitted dependency is `marcprux/universal` for YAML (`RQ-16`).
+The only permitted dependencies are `Yams` for YAML and `swift-argument-parser` for the CLI target
+(`RQ-16`).
 
 ### RQ-INV-2 — One writer
 
@@ -84,8 +85,10 @@ lines with no error. One writer and one round-trip test is the structural fix.
 ### RQ-INV-3 — No inference
 
 SwiftReparto parses and serializes. It does not discover characters from screenplays, call a model,
-read `PROJECT.md`, resolve defaults, or touch the network. Given the same bytes it returns the same
-document, on any machine, forever.
+resolve defaults, or touch the network. **Reparto imports the cast data; it does not own, resolve,
+or write `PROJECT.md`.** It may read only the `cast:` key out of a `PROJECT.md` it is handed, on the
+import path (`RQ-INV-3` narrowed by `D-4`); it never reads any other key, and it never writes that
+file. Given the same bytes it returns the same document, on any machine, forever.
 
 ---
 
@@ -165,20 +168,20 @@ pinned fixture. Emission normalizes to the array form; decoding never rejects th
 re-emit verbatim. `bio:` is the live case — it exists in production data, nothing in the ecosystem
 declares it, and it must survive every write by every consumer.
 
-### 3.3 `Appearance` — reserved for SwiftSemblanzas
+### 3.3 `Appearance` — deferred out of the beta
 
-**RQ-5** — `Appearance` is a nested optional value type with all-optional members:
+**RQ-5** — **Deferred, not removed from the design.** `Appearance` is not defined as a type in the
+beta, and `appearance` is not a declared `CodingKey` on `CastMember`. The shape it will eventually
+carry — a `portrait` path, a `lora` adapter path, a `triggerWord`, or something richer such as
+`[LoRAAsset]` with per-adapter rank/scale/engine-compatibility — is genuinely unscoped until
+SwiftSemblanzas confirms it, and shipping a guess in a released schema would turn a cheap later
+addition into an expensive one.
 
-| Field | Type | Written by |
-|---|---|---|
-| `portrait` | `String?` | Human, or a future generator |
-| `lora` | `String?` | SwiftSemblanzas — trained adapter path |
-| `triggerWord` | `String?` | SwiftSemblanzas — the LoRA's trigger token |
-
-SwiftReparto defines and round-trips these and does nothing else with them. They are reserved in
-1.0 **before** SwiftSemblanzas needs them, because adding fields to a released schema is routine
-and changing their shape is not. An absent `appearance:` is absent on re-emit — never written as
-`null` or an empty map.
+In the meantime, an `appearance:` key present in existing data is **not** dropped: because it is an
+undeclared key, it is swept into `extraKeys` and round-trips verbatim under `RQ-4`, exactly like
+`bio:`. The deferral costs no data. When `Appearance` is eventually declared, those keys move from
+`extraKeys` to a typed field — a schema change, which is exactly what the `schemaVersion` field
+(`RQ-Q3`) exists to make tractable.
 
 ### 3.4 Path semantics
 
@@ -239,7 +242,9 @@ are what make `extraKeys` lossless, and there will briefly be two copies. **Swif
 canonical.** SwiftProyecto should consume `AnyCodable` *from* SwiftReparto once Reparto 1.0 ships,
 collapsing the twins — but that is a follow-on, not a blocker, and it is the one place the leaf
 invariant may later be relaxed in the other direction (`SwiftProyecto → SwiftReparto`, which is
-acyclic and legal).
+acyclic and legal). A **third** copy exists at
+`SwiftEscribo/Sources/EscriboProject/CastMember.swift`, with its own `AnyCodable.swift`; folding it
+in is a follow-on outside this mission as well.
 
 ### RQ-14 — Merge
 
@@ -271,7 +276,7 @@ Not deferred. **Out of scope by design** — each belongs to a named owner.
 | Training LoRA adapters, portraits, DINOv2 gating | SwiftSemblanzas |
 | Reading or writing `PROJECT.md` | SwiftProyecto |
 | Major/minor classification and body prose | Deferred; see the SwiftEchada `DEF-1` |
-| Any CLI | None — SwiftReparto is a library |
+| Character discovery, prompt generation, `.vox`/LoRA generation via the CLI | SwiftEchada, SwiftSemblanzas — `reparto` is a shell over this library, bounded to `validate` and `import` |
 
 ---
 
@@ -280,10 +285,15 @@ Not deferred. **Out of scope by design** — each belongs to a named owner.
 **RQ-15** — Swift 6.2, `swiftLanguageModes: [.v6]`, strict concurrency, `Sendable` throughout.
 Platforms `.macOS(.v26)`, `.iOS(.v26)`, matching the collection.
 
-**RQ-16** — Exactly one dependency: `marcprux/universal` for YAML. Pure Swift, no heavy transitive
-graph. Adding any `intrusive-memory` dependency violates `RQ-INV-1`.
+**RQ-16** — Exactly two dependencies, split by target: `jpsim/Yams` for YAML, used by the
+`SwiftReparto` target only; `apple/swift-argument-parser`, used by `RepartoCLICore` only. Zero
+package dependencies for `Yams` itself, one resolved pin, with `libyaml` vendored as an internal C
+target. Adding any `intrusive-memory` dependency violates `RQ-INV-1`.
 
-**RQ-17** — One product, `SwiftReparto`, one target. No CLI target.
+**RQ-17** — Two products: the `SwiftReparto` library, and a `reparto` executable. The CLI's purpose
+is bounded to two jobs: validate a cast document, and import cast data from `PROJECT.md`. The CLI is
+a shell over the library — it parses no YAML and serializes no markdown of its own, so `RQ-INV-2`'s
+one-writer rule still holds with the binary in the picture.
 
 **RQ-18** — Repo `intrusive-memory/SwiftReparto`, added to `collection.json`. Does not exist yet.
 
@@ -310,7 +320,8 @@ Recorded so the boundary is checkable from this side.
 3. `extraKeys` preservation asserted on `bio` specifically, by name.
 4. Body preserved byte-for-byte across a mutate-and-write cycle.
 5. Legacy `voiceDescription` and scalar-`voices` decoding both covered.
-6. `appearance` round-trips, and an absent `appearance` stays absent.
+6. `appearance` is deferred out of the beta (no declared type or `CodingKey`, §3.3), and an
+   `appearance:` key present in existing data still round-trips verbatim through `extraKeys`.
 7. `merging(_:)` proven additive: a merge against a one-character roster leaves a twelve-character
    document at twelve characters.
 8. Rejection covered: `type:`-only, `cast:`-only, and neither.
@@ -328,5 +339,10 @@ Recorded so the boundary is checkable from this side.
   suggests the latter)? Getting this wrong means a schema change rather than a field addition.
   *Recommendation: confirm with SwiftSemblanzas before tagging 1.0 — it is cheap now and expensive
   after.*
-- **RQ-Q3 — Does `CAST.md` carry a `version:`?** Nothing needs it yet, and an unused version field
-  invites divergent interpretations. *Recommendation: no. Add it the first time the schema breaks.*
+- **RQ-Q3 — Does `CAST.md` carry a `version:`?** Reversed: yes. Every `CAST.md` document this
+  library emits carries a `schemaVersion` in its front matter. A document parsed without one is
+  legacy, not invalid — it decodes to an unversioned sentinel and is stamped with the current
+  version on its next emit. A document declaring a version newer than the library supports is a
+  typed rejection, never a silent best-effort parse. *Deferring `Appearance` out of the beta (§3.3)
+  means the schema will change, so an unused-field objection no longer holds — the version field
+  is what makes that iteration tractable.*

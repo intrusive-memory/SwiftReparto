@@ -1,7 +1,7 @@
 ---
 type: doc
 updated: 2026-08-01
-status: pre-alpha
+status: beta
 ---
 
 # SwiftReparto
