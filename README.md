@@ -9,10 +9,10 @@ status: beta
 **The cast list, as a file.** SwiftReparto owns `CAST.md` — the schema, the parser, the serializer,
 and the guarantee that nothing you hand-wrote in it ever disappears.
 
-Part of the [intrusive-memory](https://github.com/intrusive-memory) ecosystem. Ships as a Swift
-**library** only — no CLI, no models, no network.
+Part of the [intrusive-memory](https://github.com/intrusive-memory) ecosystem. Ships as the
+**SwiftReparto** library plus a `reparto` executable — no GUI, no models, no network.
 
-> **Status: pre-alpha / design.** This repo currently contains design docs only.
+> **Status: beta.** Implementation is underway.
 > See [REQUIREMENTS.md](REQUIREMENTS.md).
 
 ## Why

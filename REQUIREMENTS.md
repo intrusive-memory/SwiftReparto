@@ -12,10 +12,12 @@ target_version: first beta release
 serializer, and the round-trip guarantees. It knows who is in a production. It knows nothing about
 how they sound or how they look.
 
-Ships as a Swift **library** only. No CLI, no GUI, no models, no network.
+Ships as a Swift package with two products: the `SwiftReparto` library and the `reparto`
+executable. No GUI, no models, no network.
 
-> **Status: pre-alpha / design.** This repo currently contains design docs only. Implementation
-> begins with `RQ-1`.
+> **Status: beta.** This repo contains `Package.swift`, `Package.resolved`, a `Makefile`, three
+> source files, and a passing test suite, with a first commit already made. Implementation
+> continues from `RQ-1`.
 
 ---
 
@@ -154,7 +156,7 @@ empty cast.
 | `language` | `String?` | BCP-47 |
 | `voicePrompt` | `String?` | Preferred key. Legacy alias `voiceDescription` must still decode |
 | `voices` | `[String: [String]]` | Provider → file paths. Scalar form (`voxalta: path.vox`) must still decode |
-| `appearance` | `Appearance?` | **New, reserved.** See §3.3 |
+| `appearance` | — (not a declared `CodingKey`) | **Deferred out of the beta.** Round-trips through `extraKeys`. See §3.3 |
 | *(unknown keys)* | — | Preserved verbatim via `extraKeys`. This is how `bio:` survives |
 
 **RQ-2 — `Gender`** is `M` / `F` / `NB` / `NS`, `Codable`, `Sendable`, `CaseIterable`. Moves here
