@@ -24,7 +24,7 @@ iteration: 1
 - Project root: `/Users/stovak/Projects/package-collection/pkg/SwiftReparto`
 - Started at: 2026-08-02T01:24:14Z
 - Starting point commit: **none** — the SwiftReparto git repository is itself a deliverable (Sortie 1 runs `git init`; Sortie 1a makes the first commit)
-- Mission branch: **`main`** (created by Sortie 1) — no supervisor mission branch, see D-SUP-1
+- Mission branch: **`development`** (default branch as of Sortie 3) — no supervisor mission branch, see D-SUP-1. `main` and `development` are both at `6efa3cf`.
 - max_retries: 3
 - Pre-build clean: skipped (no `Package.swift` and no `*.xcodeproj` at mission start — nothing to clean)
 - Dependency graph: untouched (no floor bumps, no `Package.resolved` deletion, no SPM cache clear)
@@ -57,11 +57,11 @@ iteration: 1
 
 ### WU-1 Repository Buildout
 - Work unit state: RUNNING
-- Current sortie: 3 of 5 (IDs: 1 ✅, 1a ✅, 2 ✅, 3, 4)
+- Current sortie: 4 of 5 (IDs: 1 ✅, 1a ✅, 2 ✅, 3 ✅, 4)
 - Sortie state: DISPATCHED
-- Sortie type: code
-- Model: opus
-- Complexity score: 25
+- Sortie type: command
+- Model: sonnet
+- Complexity score: 10
 - Attempt: 1 of 3
 - Last verified: **Sortie 1a COMPLETED** — all 7 exit criteria re-verified by the supervisor independently of the agent's report (commit `5c5da3d` is the sole commit; `git status --porcelain` empty; both forbidden greps return 0; `IOS_DESTINATION` defined once at line 44 as `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`; `ARCHS=arm64 ONLY_ACTIVE_ARCH=YES` pinned; all nine targets present — build, test, test-ios, release, install, resolve, clean, format, help; `bin` ignored; `Package.resolved` tracked; 13 files tracked, nothing from `.build/` or `bin/`).
 - Notes: Repo now has its build interface and its recovery point. Every later exit criterion phrased as a `make` target has something real to call.
@@ -124,7 +124,8 @@ iteration: 1
 | WU-1 | 1a | COMPLETED | 1/3 | opus | 19 | a7c6f732dbc35f2e1 | 2026-08-02T01:35Z |
 | WU-1 | 2 | PARTIAL | 1/3 | sonnet | 11 | a1b1c3abab6f5076a | 2026-08-02T01:48Z |
 | WU-1 | 2 (cont.) | COMPLETED | 1/3 | sonnet | 11 | a17df500b5a8af4d7 | 2026-08-02T02:05Z |
-| WU-1 | 3 | DISPATCHED | 1/3 | opus | 25 | (pending) | 2026-08-02T02:30Z |
+| WU-1 | 3 | COMPLETED | 1/3 | opus | 25 | a9430a2acc942541e | 2026-08-02T02:30Z |
+| WU-1 | 4 | DISPATCHED | 1/3 | sonnet | 10 | (pending) | 2026-08-02T02:50Z |
 
 ---
 
@@ -142,6 +143,11 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T02:50Z | WU-1 | 3 | **Sortie 3 COMPLETED** (supervisor closed the one blocked step) | Repo `intrusive-memory/SwiftReparto` created **private**, `main` + `development` exist, default is `development`, topics set, three workflows landed, `actionlint` clean, **zero red CI runs across two PRs**. The agent hit a permission denial writing to `main` and correctly stopped rather than working around it, reporting PARTIAL with PR #2 green and clean. The supervisor completed it — which is right per the plan's own division of labor ("every `git` commit, every `gh` call … supervising agent"). |
+| 2026-08-02T02:50Z | WU-1 | 3 | **Landed via fast-forward, not `gh pr merge`** | `gh pr merge --merge` would have created a new commit on `main` carrying **no check runs**, leaving exit criterion 4 (`commits/main/check-runs` includes both test contexts) permanently unsatisfiable. `origin/main` was a strict ancestor of `origin/development`, so `git push origin origin/development:main` fast-forwarded `main` to `6efa3cf` — the exact commit the three green checks are attached to. GitHub auto-closed PR #2 as MERGED (`mergedAt: 2026-08-02T02:24:41Z`). All 11 criteria verified green afterward. `release.yml` now exists on `main`, which Sortie 20 requires for the beta to produce a binary asset. |
+| 2026-08-02T02:50Z | WU-1 | 3 | **Carry-forward to Sortie 8 (hard requirement, not advisory)** | `swift format lint --strict` is **red** on `Tests/SwiftRepartoTests/PackageSmokeTests.swift:18` (`OrderedImports`). Sortie 3 gated `Sources/` strictly and demoted `Tests/` to advisory annotations rather than adding a repo-wide `.swift-format` that disables a useful rule for one soon-to-be-deleted file — the right call. **Sortie 8 replaces that file wholesale and must then delete the advisory step and add `Tests` to the strict step**, per the comments in `lint.yml`. Until it does, `make format` would rewrite a frozen file, so the repo is not format-clean under the default config. |
+| 2026-08-02T02:50Z | WU-1 | 3 | Observation for the brief: **`Lint` is green but will not gate** | Three contexts now report — `Test on macOS`, `Test on iOS Simulator`, `Lint` — but the plan's Sortie 4 exit criterion asserts `required_status_checks.contexts` equals **exactly** the two test contexts. `Lint` therefore stays advisory: it can go red without blocking a merge. Following the plan as written; recorded because a lint job that cannot block is a weaker guarantee than its green checkmark suggests. |
+| 2026-08-02T02:50Z | WU-1 | 3 | Local branch switched to `development` | The plan's topology makes `development` the default and the target for mission work; `main` is tagged from. The supervisor's local checkout now tracks `origin/development` so bookkeeping commits land where the topology expects them. |
 | 2026-08-02T02:30Z | WU-1 | 3 | **D-SUP-6 (USER DECISION): the repository is created PRIVATE, and flipped to public at Sortie 20** | The user chose "private now, public at Sortie 20" over the plan's `gh repo create … public`. **This overrides EXECUTION_PLAN.md Sortie 3 task 1.** Rationale: the mission's own artifacts are in git history from `5c5da3d`, so pushing publishes `EXECUTION_PLAN.md` (which documents the org's Homebrew credential history) and `SUPERVISOR_STATE.md` (absolute local paths). Deferring exposure until the beta is tagged costs nothing operationally and leaves the final diff reviewable before it is indexed. **Verified this does not break anything downstream**: the org is on the GitHub **Team** plan (`gh api orgs/intrusive-memory` → `plan.name: team`), so branch protection is available on private repos and Sortie 4 is unaffected; the org already runs 10+ private repos with CI. **New obligation on Sortie 20**: flip visibility to public as part of cutting the beta. |
 | 2026-08-02T02:30Z | WU-1 | 3 | Cost note recorded | Private-repo Actions minutes are metered (Team plan: 3000/month) and **macOS runners bill at a 10× multiplier**, so this mission's CI consumes real quota that a public repo would get free. Not a blocker, and the org already absorbs this for its other private repos — recorded so the trade-off in D-SUP-6 is visible rather than assumed free. |
 | 2026-08-02T02:20Z | WU-1 | 3 | **D-SUP-5 (superseded by D-SUP-6): Sortie 3 held pending user decision on repository visibility** | Sortie 3 creates `intrusive-memory/SwiftReparto` as a **public** repo and pushes `main`. The mission's own artifacts are already in git history from commit `5c5da3d` — `EXECUTION_PLAN.md` and `SUPERVISOR_STATE.md` — so pushing publishes them. Two specifics make this a user call rather than a default: (1) `EXECUTION_PLAN.md` Sortie 3 task 10 documents the org's Homebrew credential history in public-facing detail ("the org `DEPLOY_TOKEN` PAT expired and was deleted in July 2026"); (2) `SUPERVISOR_STATE.md` embeds absolute local filesystem paths. Neither is a secret and neither is exploitable, but publishing internal operational reasoning to a public, indexable repo is a choice the plan makes implicitly and the user should make explicitly. Held rather than defaulted. |
