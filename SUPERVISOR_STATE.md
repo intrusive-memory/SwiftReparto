@@ -83,12 +83,13 @@ iteration: 1
 
 ### WU-3 Parse, Serialize, Import
 - Work unit state: **RUNNING** — gate opened, WU-2 COMPLETED (layer 1 → 2)
-- Current sortie: 11 of 9 (IDs: 8 ✅, 8a ✅, 8b ✅, 9 ✅, 9a ✅, 10 ✅, 10a ✅, 11, 12)
+- Current sortie: 12 of 9 (IDs: 8 ✅, 8a ✅, 8b ✅, 9 ✅, 9a ✅, 10 ✅, 10a ✅, 11 ✅, 12)
 - Sortie state: DISPATCHED
 - Sortie type: code
-- Model: sonnet
-- Complexity score: 12
+- Model: opus
+- Complexity score: 13
 - Attempt: 1 of 3
+- Notes: Sortie 12 closes WU-3. It is the sortie the plan flags as most likely to breach RQ-INV-1.
 - Notes: Sortie 8 owns the encoder configuration that determines whether RQ-11's SHA-256 gate is stable, and pins the undocumented Yams resolver behavior (AR-2). It also inherits the lint cleanup Sortie 3 deferred. Parallel Group 1 (Sorties 11 + 12) opens after Sortie 10.
 
 ### WU-4 Acceptance Gates
@@ -135,7 +136,8 @@ iteration: 1
 | WU-3 | 9a | COMPLETED | 1/3 | opus | 16 | a5477d895e6205a80 | 2026-08-02T07:05Z |
 | WU-3 | 10 | COMPLETED | 1/3 | opus | 23 | a9968f904ccadf5c4 | 2026-08-02T07:45Z |
 | WU-3 | 10a | COMPLETED | 1/3 | sonnet | 10 | a5f03f3366226d74a | 2026-08-02T08:20Z |
-| WU-3 | 11 | DISPATCHED | 1/3 | sonnet | 12 | (pending) | 2026-08-02T08:50Z |
+| WU-3 | 11 | COMPLETED | 1/3 | sonnet | 12 | af1d16af625e3e00e | 2026-08-02T08:50Z |
+| WU-3 | 12 | DISPATCHED | 1/3 | opus | 13 | (pending) | 2026-08-02T09:15Z |
 
 ---
 
@@ -153,6 +155,10 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T09:15Z | WU-3 | 11 | **Sortie 11 COMPLETED** | Commit `40830e5`, 458 insertions across exactly the two permitted files. All 14 criteria re-verified: `MergeStrategy` count 0, normalization declared exactly once, no forbidden annotations, no frozen file touched. **177 tests green on both destinations.** |
+| 2026-08-02T09:15Z | WU-3 | 11 | **Directive A answered: gap-filling, not strict — and the reasoning is sound** | On a match the receiver keeps every field it *has*, but a field it *lacks* (`actor`, `gender`, `language`, `voicePrompt` when nil; an `extraKeys` entry absent by key) is filled from `discovered`. For `voices` this is **per-provider**: a provider the receiver already carries is untouched even if `discovered` has different paths for it (a shared provider is never an overwrite target); a provider absent from the receiver is added. **Strict pass-through would make `merging` a pure no-op whenever the receiver already knows a character**, which guts its value on the very import path RQ-14 exists to serve — importing into an existing hand-maintained `CAST.md` would never add anything. Gap-filling preserves the no-overwrite guarantee exactly while letting the merge do useful work. The plan did not specify this; it is now a documented public-API semantic. |
+| 2026-08-02T09:15Z | WU-3 | 11 | Normalization defined once, precisely, per directive B | Split on any run of Unicode whitespace (`CharacterSet.whitespacesAndNewlines` — spaces, tabs, newlines, U+00A0), drop empty pieces from leading/trailing whitespace, rejoin with a single ASCII space, lowercase. **Explicitly does not** canonicalize Unicode form (NFC/NFD) or strip diacritics — only whitespace shape and case. Matching only: the stored `character` is never rewritten, asserted by tests using irregular spacing on both the matched and appended paths. |
+| 2026-08-02T09:15Z | WU-4 | 13 | Unspecified behavior recorded: **duplicate `character` names *within* `discovered` itself consolidate into one appended entry** | A side effect of reusing the same index map for newly appended entries. Never reduces below receiver count, and the plan specified nothing either way. Recorded so a fixture containing near-duplicate names in one `discovered` batch does not read as a bug. |
 | 2026-08-02T08:50Z | WU-3 | 10a | **Sortie 10a COMPLETED — the SHA-256 gate's last known fragility is closed** | Commit `287f5d1`. `Sources/` diff touches only `CastMember.swift` (+30/-1). **159 tests green across three separate `make test` processes** (three hash seeds) plus iOS — the repetition is the point, since a single green run cannot distinguish "fixed" from "got lucky" on a per-process-seeded defect. Round-trip corpus widened from 8 to **9 documents**, now including a three-provider member, so the main gate covers the case permanently rather than routing around it. |
 | 2026-08-02T08:50Z | WU-3 | 10a | **Second defect found and fixed inside the fix: Yams' `nestedContainer` commits on DEINIT, not on creation** | The naive translation — a bare top-level `var voicesContainer = container.nestedContainer(...)` — **compiled, looked correct, and silently moved `voices` to the very end of the mapping, after `extraKeys`.** Yams' `_ReferencingEncoder` writes itself into the parent mapping only when deallocated; left in the function's top-level scope it stayed alive until `encode(to:)` returned, by which time `extraKeys` had already written its keys directly. It broke `testExtraKeysEmitInLexicographicOrder` and `testPreservedStringAndBareIntegerEmitSideBySide` on the first run. **Wrapping the nested-container work in its own `do { }` block forces deallocation, and therefore the parent write, at the right moment.** This is exactly the "silently reaches further than intended" class that Directive C exists to catch, and the existing tests caught it. |
 | 2026-08-02T08:50Z | WU-3 | 11 | **Carry-forward: the `do`-block trap applies to any future `nestedContainer` in this codebase** | It is a Yams-specific hazard invisible from the `Codable` API surface — code will compile and pass in isolation while silently reordering keys relative to sibling top-level writes. **Sortie 11's merge logic and Sortie 12's importer must scope any `nestedContainer` the same way.** Related: `relativizingPaths` builds a fresh `[String: [String]]` by iterating `voices` in native order and reassigns it; that is safe because it never encodes the dictionary directly — the reassigned value still goes through `CastMember.encode(to:)`'s now-sorted path. What matters is the final encode, not the intermediate iteration. |
