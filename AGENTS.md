@@ -15,8 +15,8 @@ one document, not three copies to keep in sync.
 SwiftReparto owns `CAST.md`: the schema, the parser, the serializer, and the
 round-trip guarantees for a production's cast list. Ships as two products —
 the `SwiftReparto` library and the `reparto` executable. No GUI, no models,
-no network. See [REQUIREMENTS.md](REQUIREMENTS.md) for the full contract and
-[EXECUTION_PLAN.md](EXECUTION_PLAN.md) for the mission that built it
+no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIREMENTS.md) for the full contract and
+[EXECUTION_PLAN.md](docs/complete/operation-troupe-marshal/EXECUTION_PLAN.md) for the mission that built it
 (OPERATION TROUPE MARSHAL, Decisions D-1 through D-13).
 
 ## Current version

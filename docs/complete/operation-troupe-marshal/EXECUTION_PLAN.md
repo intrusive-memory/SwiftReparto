@@ -4,6 +4,8 @@ feature_name: OPERATION TROUPE MARSHAL
 iteration: 1
 starting_point_commit: none — the SwiftReparto git repository does not exist until Sortie 1
 mission_branch: main — see SUPERVISOR_STATE.md Decisions Log (D-SUP-1)
+state: complete
+updated: 2026-08-02
 ---
 
 # EXECUTION_PLAN.md — SwiftReparto

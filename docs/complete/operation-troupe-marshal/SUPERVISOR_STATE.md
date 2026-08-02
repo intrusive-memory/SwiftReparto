@@ -2,6 +2,8 @@
 type: supervisor-state
 feature_name: OPERATION TROUPE MARSHAL
 iteration: 1
+state: complete
+updated: 2026-08-02
 ---
 
 # SUPERVISOR_STATE.md — OPERATION TROUPE MARSHAL

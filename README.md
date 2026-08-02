@@ -13,7 +13,7 @@ Part of the [intrusive-memory](https://github.com/intrusive-memory) ecosystem. S
 **SwiftReparto** library plus a `reparto` executable — no GUI, no models, no network.
 
 > **Status: beta.** Two products ship: the `SwiftReparto` library and the
-> `reparto` executable. See [REQUIREMENTS.md](REQUIREMENTS.md) for the full
+> `reparto` executable. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIREMENTS.md) for the full
 > contract and [AGENTS.md](AGENTS.md) for the standing rules a consumer or
 > contributor needs — the schema version, the CLI's exit codes, and the YAML
 > dialect this library reads.
@@ -156,7 +156,7 @@ mutating it — useful as a pre-commit or CI check on hand-edited cast files.
 
 ## Documentation
 
-- [REQUIREMENTS.md](REQUIREMENTS.md) — schema, API, invariants, acceptance criteria.
+- [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIREMENTS.md) — schema, API, invariants, acceptance criteria.
 - [AGENTS.md](AGENTS.md) — standing rules: the leaf invariant, the one-writer
   rule, the schema version policy, the YAML dialect, the CLI's exit codes,
   and why there's no Homebrew formula yet.

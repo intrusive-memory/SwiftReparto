@@ -13,7 +13,7 @@ All notable changes to SwiftReparto are recorded here. Format is loosely
 ## [0.1.0-beta.1] — 2026-08-01
 
 Tagged `v0.1.0-beta.1`, published as a **prerelease**. The initial beta as
-built by OPERATION TROUPE MARSHAL (see `EXECUTION_PLAN.md`). `reparto
+built by OPERATION TROUPE MARSHAL (see `docs/complete/operation-troupe-marshal/EXECUTION_PLAN.md`). `reparto
 --version` reports `0.1.0-beta.1` — the tag's leading `v` is a tag-naming
 convention and is not part of the version string.
 
@@ -74,5 +74,5 @@ convention and is not part of the version string.
   override).
 - Folding SwiftEscribo's third copy of the cast model
   (`EscriboProject/CastMember.swift`) into this package. Recorded in
-  `REQUIREMENTS.md` RQ-13 and tracked as a follow-on issue on SwiftEscribo
+  `docs/complete/operation-troupe-marshal/REQUIREMENTS.md` RQ-13 and tracked as a follow-on issue on SwiftEscribo
   (D-9).
