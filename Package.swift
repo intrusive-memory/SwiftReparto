@@ -19,6 +19,11 @@ import PackageDescription
 // `ArgumentParser` must never appear in the `SwiftReparto` target's dependency
 // list. A consumer that only wants to read a cast list should not link an
 // argument parser to do it.
+//
+// DELIBERATE SCRATCH VIOLATION (Sortie 16 CI proof, never merged): pretend
+// this line is proposing a dependency on intrusive-memory/SwiftProyecto to
+// reuse ProjectMarkdownParser. RQ-INV-1 forbids it — this is the exact cycle
+// scripts/check-leaf-invariant.sh exists to catch.
 
 let package = Package(
   name: "SwiftReparto",
@@ -48,7 +53,10 @@ let package = Package(
     .target(
       name: "SwiftReparto",
       dependencies: [
-        .product(name: "Yams", package: "Yams")
+        .product(name: "Yams", package: "Yams"),
+        // DELIBERATE SCRATCH VIOLATION (Sortie 16 CI proof, never merged):
+        // ArgumentParser must never leak onto the library target (D-6).
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: [
         .enableUpcomingFeature("StrictConcurrency")
