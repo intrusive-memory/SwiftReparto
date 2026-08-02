@@ -1,7 +1,7 @@
 ---
 type: changelog
 title: SwiftReparto — Changelog
-updated: 2026-08-01
+updated: 2026-08-02
 ---
 
 # Changelog
@@ -9,6 +9,19 @@ updated: 2026-08-01
 All notable changes to SwiftReparto are recorded here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [Semantic Versioning](https://semver.org/) once a stable line exists.
+
+## [0.1.0] — 2026-08-02
+
+Tagged `v0.1.0`, the first **stable** release — a promotion of
+`v0.1.0-beta.1` with no library or CLI behavior changes. The stable line
+starts here: `releases/latest` now resolves for this repo, which is the
+precondition for the hand-created Homebrew formula in the org tap (see
+[AGENTS.md](AGENTS.md#release)).
+
+### Changed
+
+- Version constant bumped to `0.1.0`; docs and install instructions now
+  reference the stable tag.
 
 ## [0.1.0-beta.1] — 2026-08-01
 
