@@ -44,6 +44,15 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
+      # RQ-INV-1 acceptance gate (Sortie 16). Deliberately a step in *this* job
+      # rather than a new one: branch protection is frozen at exactly
+      # ["Test on macOS", "Test on iOS Simulator"] (Sortie 4), and a guard
+      # living in a job that is not a required status check can go red on a PR
+      # that still merges green. `swift package dump-package` (used inside the
+      # script) is a manifest-dump command, not a build, and is permitted here.
+      - name: Check leaf invariant (RQ-INV-1)
+        run: ./scripts/check-leaf-invariant.sh
+
       - name: Test
         run: make test
 
