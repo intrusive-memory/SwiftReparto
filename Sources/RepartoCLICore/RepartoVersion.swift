@@ -25,13 +25,15 @@
 
 /// The single place `reparto --version`'s value is declared.
 ///
-/// **Provisional, by policy.** Standing project policy forbids inventing a
-/// concrete release number in a sortie that isn't the release sortie —
-/// Sortie 20 sets this constant's final value at tag time. Until then, one
-/// placeholder in one place is what keeps every other file, and `--version`
-/// itself, from needing to change when that happens.
+/// **Unprefixed by design.** The git tag is `v`-prefixed (`v0.1.0-beta.1`,
+/// per org convention); this constant is not. `release.yml` derives its
+/// tarball name from `VERSION="${TAG#v}"`, so `reparto --version` printing
+/// `0.1.0-beta.1` is exactly the string embedded in
+/// `reparto-0.1.0-beta.1-arm64-macos.tar.gz` and exactly what SwiftPM's
+/// `exact:` requirement takes. The single `v` lives in the tag and nowhere
+/// else.
 public enum RepartoVersion {
 
-  /// A provisional placeholder. Sortie 20 sets its final value at tag time.
-  public static let current: String = "0.0.0-dev"
+  /// The released version, without the tag's leading `v`.
+  public static let current: String = "0.1.0-beta.1"
 }

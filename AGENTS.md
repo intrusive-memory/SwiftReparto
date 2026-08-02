@@ -21,17 +21,23 @@ no network. See [REQUIREMENTS.md](REQUIREMENTS.md) for the full contract and
 
 ## Current version
 
-**`<BETA_TAG>`** — a placeholder. **Sortie 20 is the only sortie authorized to
-set a concrete version**, at tag time, and it substitutes this marker
-everywhere it appears. Standing project policy forbids inventing a concrete
-release number outside that sortie.
+**Tag `v0.1.0-beta.1` — version string `0.1.0-beta.1`** (published as a
+GitHub **prerelease**; the initial release of this package, set by Sortie 20).
 
-The same placeholder appears in exactly one place in source:
-`Sources/RepartoCLICore/RepartoVersion.swift`'s `RepartoVersion.current`,
-currently `"0.0.0-dev"`. Sortie 20 sets both together — the marker here and
-the constant there must always name the same release, because
+The two spellings are deliberate and both are load-bearing:
+
+- **The tag carries the `v`** — org convention across `intrusive-memory`
+  (SwiftEscribo `v0.1.0`…`v0.3.0`, SwiftProyecto `v4.8.1`). Use it for
+  `gh release download` and anything else that names a git ref.
+- **`Sources/RepartoCLICore/RepartoVersion.swift`'s `RepartoVersion.current`
+  does not** — it is `"0.1.0-beta.1"`. `release.yml` derives the tarball name
+  from `VERSION="${TAG#v}"`, so the constant, `reparto --version`, and
+  `reparto-0.1.0-beta.1-arm64-macos.tar.gz` all agree character-for-character,
+  and SwiftPM's `exact:` requirement takes that same unprefixed string.
+
+The constant and this section must always name the same release —
 `reparto --version` reads the constant and this file is where a human or
-agent looks first.
+agent looks first. A future release bumps both together.
 
 ## Hard constraints
 

@@ -82,11 +82,12 @@ tap only tracks stable releases, and this is a beta (see
 
 ### The library, via Swift Package Manager
 
-<!-- Sortie 20 substitutes <BETA_TAG> with the tagged beta version at release time. -->
-
 ```swift
-.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", exact: "<BETA_TAG>")
+.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", exact: "0.1.0-beta.1")
 ```
+
+(The git tag is `v0.1.0-beta.1`; SwiftPM's `exact:` takes the unprefixed
+semver and resolves the `v`-prefixed tag itself.)
 
 Then depend on the `SwiftReparto` product in the target that reads or writes
 cast data. `RepartoCLICore` is deliberately not a product — the library
@@ -95,7 +96,7 @@ carries no CLI dependency.
 ### The `reparto` binary, via `gh release download`
 
 ```sh
-gh release download <BETA_TAG> \
+gh release download v0.1.0-beta.1 \
   --repo intrusive-memory/SwiftReparto \
   --pattern 'reparto-*-arm64-macos.tar.gz'
 tar xzf reparto-*-arm64-macos.tar.gz

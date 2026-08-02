@@ -10,12 +10,12 @@ All notable changes to SwiftReparto are recorded here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [Semantic Versioning](https://semver.org/) once a stable line exists.
 
-## [Unreleased] — `<BETA_TAG>`
+## [0.1.0-beta.1] — 2026-08-01
 
-**Placeholder.** Sortie 20 is the only sortie authorized to substitute a
-concrete tag for `<BETA_TAG>` here, in `AGENTS.md`'s current-version marker,
-and in `RepartoVersion.current`. This entry describes the initial beta as
-built by OPERATION TROUPE MARSHAL (see `EXECUTION_PLAN.md`).
+Tagged `v0.1.0-beta.1`, published as a **prerelease**. The initial beta as
+built by OPERATION TROUPE MARSHAL (see `EXECUTION_PLAN.md`). `reparto
+--version` reports `0.1.0-beta.1` — the tag's leading `v` is a tag-naming
+convention and is not part of the version string.
 
 ### Added
 
