@@ -100,11 +100,11 @@ iteration: 1
 
 ### WU-6 Beta Release
 - Work unit state: **RUNNING** — gate opened, WU-5 COMPLETED (layer 4 → 5)
-- Current sortie: 19 of 3 (IDs: 19, 19a, 20)
+- Current sortie: 19a of 3 (IDs: 19 ✅, 19a, 20)
 - Sortie state: DISPATCHED
 - Sortie type: code
 - Model: sonnet
-- Complexity score: 12
+- Complexity score: 11
 - Attempt: 1 of 3
 - Notes: Final work unit. Sortie 20 carries the irreversible steps — tag, publish, register in `collection.json`, and flip visibility to public (D-SUP-6).
 
@@ -140,7 +140,8 @@ iteration: 1
 | WU-4 | 16 | COMPLETED | 1/3 | sonnet | 10 | a62b3bc137b0e805f | 2026-08-02T11:45Z |
 | WU-5 | 17 | COMPLETED | 1/3 | sonnet | 11 | a21a655979297bffd | 2026-08-02T12:20Z |
 | WU-5 | 18 | COMPLETED | 1/3 | sonnet | 11 | a7ab067e0de430350 | 2026-08-02T13:00Z |
-| WU-6 | 19 | DISPATCHED | 1/3 | sonnet | 12 | (pending) | 2026-08-02T13:40Z |
+| WU-6 | 19 | COMPLETED | 1/3 | sonnet | 12 | ae9f2578897f24c19 | 2026-08-02T13:40Z |
+| WU-6 | 19a | DISPATCHED | 1/3 | sonnet | 11 | (pending) | 2026-08-02T14:15Z |
 
 ---
 
@@ -158,6 +159,10 @@ iteration: 1
 | 2026-08-02T01:35Z | — | — | **D-SUP-3: `test-ios` pins `OS=26.5`; the agent's `OS=26.0` recommendation is REJECTED** | Sortie 1 recommended pinning `OS=26.0` on the speculation that the `macos-26` runner image ships only iOS 26.0/26.1. **Refuted by evidence.** `SwiftAcervo/.github/workflows/tests.yml` spells out `OS=26.5` and its `Tests` workflow passed on `macos-26` on 2026-08-01 — the runner has 26.5. `SwiftEscribo/Makefile` also pins `IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'` with green CI. 26.5 is therefore both the org convention and the CI-verified value. Sortie 1a pins `'platform=iOS Simulator,name=iPhone 17,OS=26.5'`. |
 | 2026-08-02T02:20Z | WU-1 | 2 | **Sortie 2 COMPLETED** (after continuation) | Commit `0e1a566`. All five continuation criteria pass and **none of the original ten regressed** — supervisor re-ran every one. Intro prose in both files now names two products; both `pre-alpha / design` callouts replaced with beta; §3.2's `appearance` row no longer declares `Appearance?` and reads `— (not a declared CodingKey) | **Deferred out of the beta.** Round-trips through extraKeys.`, so Sortie 6 will not declare a field D-3 forbids. |
 | 2026-08-02T02:20Z | WU-1 | 2 | Carried forward to **Sortie 19** (documentation set) | `REQUIREMENTS.md`'s new status callout enumerates the current file inventory ("three source files, and a passing test suite"). Accurate today, stale by Sortie 6. Not worth its own sortie; Sortie 19 owns the documentation set and should generalize it. |
+| 2026-08-02T14:15Z | WU-6 | 19 | **Sortie 19 COMPLETED** | Commit `697c19c`, 499 insertions. All 11 criteria re-verified: six root docs present, `CLAUDE.md`/`GEMINI.md` `readlink` to `AGENTS.md`, zero `pre-alpha`, zero `brew install`, `Sources/` and `Tests/` diff empty, `type:` frontmatter on both new files. 241 tests still green. |
+| 2026-08-02T14:15Z | WU-6 | 20 | **Version-placeholder checklist for Sortie 20 — six substitution sites** | `README.md` ×3 (SwiftPM `exact:` pin, `gh release download`, and an HTML comment marking the block), `CHANGELOG.md` ×1 (`## [Unreleased] — <BETA_TAG>`), `AGENTS.md` ×1 (Current version section), and **`Sources/RepartoCLICore/RepartoVersion.swift`'s `RepartoVersion.current = "0.0.0-dev"`** — the one site inside `Sources/`, out of scope for Sortie 19 and therefore easy to miss. A release where the binary reports one version and the README pins another is the failure this checklist exists to prevent. |
+| 2026-08-02T14:15Z | — | — | **Plan inaccuracy found: the two reference repos do NOT share a `CLAUDE.md` pattern** | Sortie 19 task 5 says to symlink or copy "matching SwiftEscribo and SwiftProyecto", as though they agree. They do not. **SwiftProyecto symlinks**; **SwiftEscribo maintains distinct hand-written condensed `CLAUDE.md`/`GEMINI.md` files** that summarize and link back to `AGENTS.md`. Only the symlink shape satisfies this sortie's own exit criterion (identical content by SHA-256 or `readlink`), so the agent followed SwiftProyecto and said so. Worth recording because the plan asserts a house convention that is not actually uniform across the house. |
+| 2026-08-02T14:15Z | WU-6 | 19a | **Plan's stated rationale for task 4 is wrong, though its instruction is still the right call** | Task 4 puts `check-public-docs.sh` in the `Lint` job "for the same branch-protection reason Sortie 16 gives." **Sortie 16's reason was the opposite**: put the guard in a job that is *already a required context*, because a non-required job cannot block a merge. `Lint` is **not** a required context — protection is frozen at exactly `["Test on macOS","Test on iOS Simulator"]`, which the supervisor has re-verified at every WU boundary. So this guard **will not gate**, unlike the leaf invariant. **Following the instruction anyway**: a missing doc comment is not the class of defect that should block a merge, and putting it in `Test on macOS` would make it one. Only the plan's justification is faulty, not its placement. |
 | 2026-08-02T13:40Z | WU-5 | 18 | **Sortie 18 COMPLETED — WU-5 CLOSED** | Commit `1720216`, 398 insertions, 0 deletions. All 16 criteria re-verified. **241 tests green on both destinations** (223 + 18 new). `otool -L ./bin/reparto` names only system frameworks and SDK Swift runtime libs — **nothing under `DerivedData`**, so the shipped artifact runs without the build tree. `xcodebuild -list` shows the `reparto` scheme resolves. CI: **1 run**, PR #4, green macOS job showing the new binary smoke step. |
 | 2026-08-02T13:40Z | WU-5 | 18 | Task 2's escalation clause did not fire, and that is the finding | The agent re-checked `grep -rcE '^\s*print\(\|standardError' Sources/RepartoCLICore/` and got 0 — **no command writes to a global stream, so no Sortie 17 defect existed and no refactor was needed.** `CapturingSink` holds independent `stdout`/`stderr` arrays and every command test asserts on the two separately (a failed `validate` asserts `stdout == []` **and** `stderr == [message]`; `--quiet` asserts both empty). `CapturingSink` is `@unchecked Sendable`, which is correct — the prohibition is scoped to `Sources/`, and this is in `Tests/`. |
 | 2026-08-02T13:40Z | WU-6 | 20 | **Operational note for the release sortie** | `tests.yml` triggers only on `pull_request`, so a direct push to `development` produces **zero CI signal**. Sorties 3, 16, and 18 each needed a throwaway PR round-trip to get a real reading. Sortie 20 must not mistake a silent push for a green build. |
