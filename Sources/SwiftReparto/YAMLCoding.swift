@@ -286,12 +286,22 @@ private func retaggingPlainYAML11Booleans(in node: Node) -> Node {
 ///   - yaml: The YAML document text. For a `CAST.md` this is the front matter
 ///     only, already split from the body by the caller.
 /// - Returns: The decoded value.
-/// - Throws: A `DecodingError`. Note that this includes errors the decoded type
-///   raised itself: Yams wraps any non-`DecodingError` thrown during decoding —
-///   `CastDocument.init(from:)`'s `CastParseError`, for one — in
-///   `DecodingError.dataCorrupted` with the original hanging off
-///   `underlyingError`. That wrapping is reproduced faithfully below rather
-///   than quietly changed, because changing it is a separate decision.
+/// - Throws: ``CastParseError`` unchanged when the decoded type raised one, and
+///   otherwise a `DecodingError`.
+///
+///   **The ``CastParseError`` passthrough is load-bearing and is the one place
+///   this function deliberately does *not* reproduce Yams.**
+///   `YAMLDecoder.processYamlNode` (`Yams/Sources/Yams/Decoder.swift:141-166`)
+///   catches `DecodingError` and wraps everything else in
+///   `DecodingError.dataCorrupted`, reachable only through `underlyingError`.
+///   Applied here that would take the four typed failures
+///   `CastDocument.init(from:)` raises — `unsupportedSchemaVersion`,
+///   `missingTypeCast`, `missingCastKey`, `missingCharacter` — and bury each of
+///   them inside a "The given data was not valid YAML." that says nothing about
+///   what was actually wrong. RQ-12 exists so a caller can tell those apart, so
+///   they travel out of here as themselves. Genuine YAML and decoding failures
+///   are still `DecodingError`; `CastMarkdownParser` is what maps those onto
+///   ``CastParseError/invalidYAML(_:)``.
 func decodeYAML<Value: Decodable>(_ type: Value.Type, from yaml: String) throws -> Value {
   // Same rule as the encoder: constructed per call, never stored. `YAMLDecoder`
   // is also a non-`Sendable` `public class` with mutable options.
@@ -324,6 +334,12 @@ func decodeYAML<Value: Decodable>(_ type: Value.Type, from yaml: String) throws 
       let parsed = try parser.singleRoot() ?? Node("")
       return try decoder.decode(Value.self, from: retaggingPlainYAML11Booleans(in: parsed))
     }
+  } catch let error as CastParseError {
+    // Ahead of the `DecodingError` clause on purpose. `CastParseError` is not a
+    // `DecodingError`, so without this it would fall to the wrapping clause
+    // below and reach the caller as `dataCorrupted` with the real cause hidden
+    // in `underlyingError`. See this function's `Throws:` note.
+    throw error
   } catch let error as DecodingError {
     throw error
   } catch {
