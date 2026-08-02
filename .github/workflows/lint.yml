@@ -53,6 +53,17 @@ jobs:
       - name: Lint Sources and Tests (strict)
         run: swift format lint --strict --recursive Sources Tests
 
+      # Sortie 19a. Fails when a `public` declaration under `Sources/` has no
+      # preceding `///` doc comment. Deliberately a step in this job, not a
+      # new one: branch protection is frozen at exactly
+      # ["Test on macOS", "Test on iOS Simulator"] (Sortie 4), Lint is not a
+      # required status check, and a missing doc comment is not the class of
+      # defect that should block a merge — see the script's own header for
+      # why moving this into a required job would be the wrong fix, not an
+      # improvement.
+      - name: Check public declarations have doc comments
+        run: ./scripts/check-public-docs.sh
+
       # Nothing above is supposed to write to the checkout. If anyone ever points
       # this job at `make format`, or at any other in-place tool, this fails and
       # says why.

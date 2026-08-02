@@ -76,6 +76,19 @@ import Foundation
 /// The wrapped value's type is preserved through encoding and decoding using
 /// internal JSON representation. When you decode an `AnyCodable`, you get back
 /// an equivalent value that can be compared for equality.
+///
+/// ## Canonical copy (RQ-13, D-9)
+///
+/// **This copy is canonical.** SwiftProyecto holds a twin
+/// (`Sources/SwiftProyecto/Models/AnyCodable.swift`), and a third copy exists
+/// at `SwiftEscribo/Sources/EscriboProject/AnyCodable.swift`. The twins are
+/// permitted to drift apart in exactly one direction —
+/// `SwiftProyecto -> SwiftReparto` — never the reverse: a fix or improvement
+/// made against SwiftProyecto's twin collapses into this file, and this file
+/// never pulls a change the other way. SwiftReparto declares no dependency on
+/// SwiftProyecto (RQ-INV-1), so this vendored copy, kept manually in sync in
+/// the direction stated above, is how the type exists here at all. See this
+/// file's header comment for the one documented exception (null support).
 public struct AnyCodable: Codable, Sendable, Equatable {
 
   /// The type-erased value stored as encoded data.
@@ -138,6 +151,18 @@ public struct AnyCodable: Codable, Sendable, Equatable {
 
   // MARK: - Codable
 
+  /// Decodes a value of unknown shape, probing types in a fixed order.
+  ///
+  /// Null is checked first (see the comment on the guard below for why order
+  /// matters there), then `Bool`, `Int`, `Double`, `String`, `[AnyCodable]`,
+  /// and `[String: AnyCodable]`, in that order — the same order
+  /// ``encode(to:)`` and the module's YAML dialect narrowing assume. A value
+  /// that matches none of these falls back to raw `Data`, and only throws
+  /// `DecodingError.dataCorrupted` if even that fails.
+  ///
+  /// - Parameter decoder: The decoder to read a single value from.
+  /// - Throws: `DecodingError.dataCorrupted` if the value cannot be decoded as
+  ///   any supported shape.
   public init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
 
@@ -216,6 +241,16 @@ public struct AnyCodable: Codable, Sendable, Equatable {
     }
   }
 
+  /// Re-encodes the wrapped value as whatever shape it was decoded from.
+  ///
+  /// Mirrors ``init(from:)``'s probe order. A nested `[String: AnyCodable]`
+  /// sorts its keys before writing them (see the comment inside the
+  /// `dict` branch below) so that a mapping nested inside an extra's value
+  /// is byte-stable across runs even though `[String: AnyCodable]` itself
+  /// has no stable iteration order.
+  ///
+  /// - Parameter encoder: The encoder to write the wrapped value to.
+  /// - Throws: `EncodingError` if the wrapped value cannot be re-encoded.
   public func encode(to encoder: Encoder) throws {
     // Symmetric with the decodeNil() check in init(from:): a null
     // AnyCodable re-emits a literal `null`, not the string "null", an empty
@@ -280,6 +315,13 @@ public struct AnyCodable: Codable, Sendable, Equatable {
 
   // MARK: - Equatable
 
+  /// Two values are equal exactly when their encoded byte representations
+  /// are equal.
+  ///
+  /// This is deliberately a comparison of ``encodedData``, not of decoded
+  /// values, since the wrapped type is not known at the comparison site. See
+  /// ``encodedData``'s own documentation for how ``nullData`` keeps `null`
+  /// distinct from every other falsy encoded form under this same test.
   public static func == (lhs: AnyCodable, rhs: AnyCodable) -> Bool {
     // Two AnyCodable values are equal if their encoded representations match
     return lhs.encodedData == rhs.encodedData

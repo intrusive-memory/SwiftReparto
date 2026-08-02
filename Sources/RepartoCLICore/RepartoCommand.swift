@@ -59,6 +59,12 @@ import ArgumentParser
 /// place that constructs the real one.
 public struct RepartoCommand: ParsableCommand {
 
+  /// `reparto`'s name, abstract, discussion text, and subcommand list.
+  ///
+  /// **`reparto --help` is the spec.** The exit-code table rendered into
+  /// `discussion` reads the same `RepartoExitCode` constants
+  /// `ExitMapping.swift`'s `repartoExitCode(for:)` returns, so the two can
+  /// never say two different things about what a given failure exits with.
   public static let configuration = CommandConfiguration(
     commandName: "reparto",
     abstract: "Validate and import CAST.md cast documents.",
@@ -81,5 +87,8 @@ public struct RepartoCommand: ParsableCommand {
     subcommands: [ValidateCommand.self, ImportCommand.self]
   )
 
+  /// Required by `ParsableCommand` so ArgumentParser can construct the root
+  /// command; the root itself carries no parsed arguments of its own — every
+  /// argument belongs to one of ``configuration``'s subcommands.
   public init() {}
 }

@@ -35,6 +35,11 @@ import SwiftReparto
 /// its own.
 public struct ValidateCommand: ParsableCommand {
 
+  /// `validate`'s name, abstract, and discussion text.
+  ///
+  /// The exit codes named in `discussion` are read from ``RepartoExitCode``,
+  /// not restated as literals, so this text and `repartoExitCode(for:)` in
+  /// `ExitMapping.swift` cannot drift apart.
   public static let configuration = CommandConfiguration(
     commandName: "validate",
     abstract: "Validate a CAST.md document.",
@@ -73,6 +78,9 @@ public struct ValidateCommand: ParsableCommand {
     case quiet
   }
 
+  /// Required by `ParsableCommand` so ArgumentParser can construct this
+  /// command before populating ``path`` and ``quiet`` from the parsed
+  /// arguments.
   public init() {}
 
   /// Constructs the command directly, bypassing argument parsing.
@@ -86,6 +94,18 @@ public struct ValidateCommand: ParsableCommand {
     self.sink = sink
   }
 
+  /// Parses ``path`` and reports the result through ``sink`` and the process
+  /// exit code — nothing more.
+  ///
+  /// The only library call is
+  /// ``SwiftReparto/CastMarkdownParser/parse(fileURL:)``; a thrown
+  /// ``SwiftReparto/CastParseError`` is written to ``sink`` (unless
+  /// ``quiet`` is set) and mapped to an exit code by `repartoExitCode(for:)`
+  /// — never decided inline here.
+  ///
+  /// - Throws: An `ExitCode` carrying the mapped exit status. This is
+  ///   ArgumentParser's own control-flow convention for reporting a
+  ///   non-zero exit, not an error in the ordinary sense.
   public func run() throws {
     do {
       _ = try CastMarkdownParser().parse(fileURL: URL(fileURLWithPath: path))

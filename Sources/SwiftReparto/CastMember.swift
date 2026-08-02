@@ -292,6 +292,18 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     }
   }
 
+  /// Decodes a member, applying every RQ-3 leniency and capturing every
+  /// undeclared key (RQ-4).
+  ///
+  /// This is the mechanism ``CodingKeys``' and ``DynamicCodingKey``'s
+  /// documentation both describe: `voicePrompt` and legacy `voiceDescription`
+  /// land in the same property, a scalar `voices` provider becomes a
+  /// one-element array, and anything not named above — `bio:`, a deferred
+  /// `appearance:` block — is swept into ``extraKeys`` rather than discarded.
+  ///
+  /// - Parameter decoder: The decoder to read a cast member from.
+  /// - Throws: `DecodingError` if `character` is missing or any declared
+  ///   field has the wrong shape.
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     character = try container.decode(String.self, forKey: .character)
@@ -337,6 +349,18 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     extraKeys = capturedExtras
   }
 
+  /// Encodes a member with deterministic, byte-stable key order.
+  ///
+  /// Declared fields are written in ``CodingKeys``' declaration order, the
+  /// legacy `voiceDescription` alias is never written (only `voicePrompt`
+  /// is), `voices` is always written in array form with providers sorted,
+  /// and ``extraKeys`` is appended last, sorted lexicographically. This
+  /// exact order is what RQ-11's SHA-256 gate depends on — see
+  /// ``CodingKeys``'s documentation for why it cannot come from
+  /// `sortKeys = true` at the YAML layer instead.
+  ///
+  /// - Parameter encoder: The encoder to write this member to.
+  /// - Throws: `EncodingError` if some value cannot be represented.
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(character, forKey: .character)

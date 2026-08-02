@@ -49,6 +49,11 @@ import SwiftReparto
 /// exists to refuse, arriving through a different door.
 public struct ImportCommand: ParsableCommand {
 
+  /// `import`'s name, abstract, and discussion text.
+  ///
+  /// The exit codes named in `discussion` are read from ``RepartoExitCode``,
+  /// not restated as literals, so this text and `repartoExitCode(for:)` in
+  /// `ExitMapping.swift` cannot drift apart.
   public static let configuration = CommandConfiguration(
     commandName: "import",
     abstract: "Import a cast roster from a PROJECT.md into a versioned CAST.md.",
@@ -112,6 +117,9 @@ public struct ImportCommand: ParsableCommand {
     case dryRun
   }
 
+  /// Required by `ParsableCommand` so ArgumentParser can construct this
+  /// command before populating ``projectPath``, ``output``, ``force``, and
+  /// ``dryRun`` from the parsed arguments.
   public init() {}
 
   /// Constructs the command directly, bypassing argument parsing.
@@ -129,6 +137,22 @@ public struct ImportCommand: ParsableCommand {
     self.sink = sink
   }
 
+  /// Imports ``projectPath``'s cast data and either writes it to
+  /// ``output`` (or the default beside the source) or, under ``dryRun``,
+  /// prints it to ``sink`` instead.
+  ///
+  /// The only library calls are
+  /// ``SwiftReparto/ProjectCastImporter/importCast(fileURL:)``,
+  /// ``SwiftReparto/CastMarkdownParser/generate(document:)``, and
+  /// ``SwiftReparto/CastMarkdownParser/write(document:to:)`` — see this
+  /// type's documentation for why the file-URL importer entry point is the
+  /// only one this command is allowed to call. Every failure, including both
+  /// write guards, is written to ``sink`` and mapped to an exit code by
+  /// `repartoExitCode(for:)`, never decided inline here.
+  ///
+  /// - Throws: An `ExitCode` carrying the mapped exit status. This is
+  ///   ArgumentParser's own control-flow convention for reporting a
+  ///   non-zero exit, not an error in the ordinary sense.
   public func run() throws {
     let sourceURL = URL(fileURLWithPath: projectPath)
     let destinationURL =

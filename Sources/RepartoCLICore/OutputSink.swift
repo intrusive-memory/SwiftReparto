@@ -65,12 +65,16 @@ public struct ConsoleOutputSink: OutputSink {
   /// stream.
   private static let diagnosticFileDescriptor: Int32 = 2
 
+  /// Creates the real sink. Stateless — see this type's documentation for
+  /// why it holds nothing but a file descriptor constant.
   public init() {}
 
+  /// Writes `text` to the real standard output, unchanged.
   public func writeOutput(_ text: String) {
     FileHandle.standardOutput.write(Data(text.utf8))
   }
 
+  /// Writes `text` to the real standard error, unchanged.
   public func writeError(_ text: String) {
     FileHandle(fileDescriptor: Self.diagnosticFileDescriptor).write(Data(text.utf8))
   }
