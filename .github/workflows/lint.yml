@@ -1,0 +1,83 @@
+name: Lint
+
+# `swift format`, invoked directly, is the lint tool here — not a `make` target.
+# `make format` is `swift format -i -r .`: it rewrites the checkout in place and
+# would therefore "pass" by linting whatever it had just written. A lint gate
+# must be read-only, and the last step in this job is the standing assertion
+# that it stayed that way.
+#
+# (The project-wide prohibition on SwiftPM drivers covers `swift build` and
+# `swift test`. `swift format` is not a build driver and is not covered.)
+
+on:
+  pull_request:
+    branches: [main, development]
+  workflow_dispatch:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: macos-26
+
+    # Every gating job in this repo declares a deadline; see tests.yml. Linting
+    # a handful of files finishes in seconds, so 15 minutes is many times the
+    # worst realistic run and exists only to catch a wedge.
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Show swift-format version
+        run: swift format --version
+
+      # HARD GATE. `Sources/` is strict-clean at the commit that introduced this
+      # workflow and must stay that way: `--strict` promotes every finding to an
+      # error, so any unformatted shipping code fails the PR.
+      #
+      # No `continue-on-error`, no `|| true`, no `if: always()`. This step's exit
+      # status is the job's.
+      - name: Lint Sources (strict)
+        run: swift format lint --strict --recursive Sources
+
+      # ADVISORY, and this is a temporary exception with a named end date.
+      #
+      # `Tests/SwiftRepartoTests/PackageSmokeTests.swift` groups its imports
+      # (stdlib block, blank line, first-party block), which `OrderedImports`
+      # rejects — it wants one lexicographic block. The file is frozen: Sortie 1
+      # wrote it, Sortie 8 replaces it wholesale with the real coding tests.
+      # Rather than disable `OrderedImports` repo-wide in a `.swift-format` file
+      # to accommodate one soon-to-be-deleted file, the findings are surfaced as
+      # annotations and do not fail the build.
+      #
+      # WHOEVER REPLACES THAT FILE: delete this step and add `Tests` to the
+      # strict step above. Leaving `Tests/` permanently advisory is not the
+      # intent.
+      - name: Lint Tests (advisory until the Sortie 1 smoke test is replaced)
+        run: |
+          OUTPUT=$(swift format lint --recursive Tests 2>&1) || true
+          if [ -n "$OUTPUT" ]; then
+            echo "$OUTPUT"
+            echo "::warning::swift-format findings in Tests/ are advisory. See the comment in .github/workflows/lint.yml."
+          else
+            echo "Tests/ is clean — this step can be folded into the strict step above."
+          fi
+
+      # Nothing above is supposed to write to the checkout. If anyone ever points
+      # this job at `make format`, or at any other in-place tool, this fails and
+      # says why.
+      - name: Fail if linting modified the checkout
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::The lint step modified tracked files. A lint gate must be read-only — see the Makefile's format target."
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            echo "::error::The lint step left untracked files in the checkout."
+            exit 1
+          fi
