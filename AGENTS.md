@@ -338,6 +338,22 @@ no Homebrew formula during the beta.** One is created — by hand, in the tap
 early to "get ahead of it," and do not promote a beta tag to a full release
 just to make the tap notice it.
 
+## Queryable Codemap
+
+A prebuilt [graphify](https://pypi.org/project/graphifyy/) knowledge graph of this
+codebase lives in [`graphify-out/`](graphify-out/) (671 nodes · 1325 edges). **Prefer
+querying it before grepping** for architecture or "what connects to what" questions:
+
+```bash
+graphify query "How does X flow through the system?"
+graphify path "TypeA" "TypeB"      # shortest path between two nodes
+graphify explain "SomeType"        # plain-language node explanation
+```
+
+Human-readable summary: [`graphify-out/GRAPH_REPORT.md`](graphify-out/GRAPH_REPORT.md).
+Refresh after significant changes with `/codemap` (or
+`graphify . --backend claude-cli`).
+
 ## Testing and this document
 
 `make test` runs the full suite (241 tests as of WU-5's close, across both
