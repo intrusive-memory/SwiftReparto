@@ -510,4 +510,64 @@ final class YAMLCodingTests: XCTestCase {
     // owns it. This is a statement of the contract, not an oversight.
     XCTAssertEqual(decoded.body, "")
   }
+
+  // MARK: - Sortie 8a: cross-process byte stability of nested mappings
+
+  /// A `CastMember` carrying a nested `appearance:` block emits
+  /// byte-identically no matter which insertion order was used to build the
+  /// nested dictionary.
+  ///
+  /// ## This is a proxy, not a true cross-process test
+  ///
+  /// The defect Sortie 8a fixes is that `AnyCodable.encode(to:)` used to hand
+  /// a decoded `[String: AnyCodable]` straight to the encoder, which walks
+  /// `Dictionary`'s own storage order — stable within a process (per Sortie
+  /// 8's `testRepeatedEncodingIsByteIdentical`) but seeded per process, so it
+  /// is not guaranteed to match between two separate invocations of the same
+  /// program. A literal cross-process test would mean spawning a second
+  /// `xctest` process from inside this one and diffing its output; XCTest has
+  /// no supported way to do that, and even a hand-rolled `Process` launch
+  /// would make this suite's pass/fail depend on process-spawning mechanics
+  /// unrelated to `AnyCodable` — a worse trade than the gap it would close.
+  ///
+  /// Building the same logical `appearance:` mapping through two different
+  /// insertion sequences is the closest in-process substitute: Swift's
+  /// `Dictionary` storage layout can differ for the same keys inserted in a
+  /// different order (the same property that makes cross-process order
+  /// unstable in the first place), so this exercises a real, if narrower,
+  /// instance of the hazard. What actually proves the fix — at every
+  /// depth, deterministically — is `AnyCodableTests
+  /// .testThreeLevelNestedMappingIsSortedAtEveryLevel`; this test is the
+  /// `CastMember` / `extraKeys` shape D-3 cares about, layered on top.
+  func testNestedAppearanceBlockEmitsByteIdenticallyRegardlessOfInsertionOrder() throws {
+    let loraKeys = ["path", "engine", "scale", "rank", "adapter", "weight", "tag", "version"]
+
+    func buildLora(insertionOrder keysInOrder: [String]) -> [String: String] {
+      var lora: [String: String] = [:]
+      for key in keysInOrder {
+        lora[key] = "value-for-\(key)"
+      }
+      return lora
+    }
+
+    let forwardLora = buildLora(insertionOrder: loraKeys)
+    let reverseLora = buildLora(insertionOrder: loraKeys.reversed())
+    XCTAssertEqual(
+      forwardLora, reverseLora,
+      "fixture bug: the two dictionaries must be logically equal for this test to mean anything")
+
+    var memberBuiltForward = CastMember(character: "THE PRACTITIONER")
+    memberBuiltForward.setExtra(try AnyCodable(["lora": forwardLora]), forKey: "appearance")
+
+    var memberBuiltReverse = CastMember(character: "THE PRACTITIONER")
+    memberBuiltReverse.setExtra(try AnyCodable(["lora": reverseLora]), forKey: "appearance")
+
+    let yamlForward = try encodeYAML(memberBuiltForward)
+    let yamlReverse = try encodeYAML(memberBuiltReverse)
+
+    XCTAssertEqual(
+      yamlForward, yamlReverse,
+      "the same logical `appearance:` block emitted different bytes depending on nested "
+        + "dictionary insertion order.\nforward:\n\(yamlForward)\nreverse:\n\(yamlReverse)")
+  }
 }

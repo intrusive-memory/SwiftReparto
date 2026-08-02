@@ -193,13 +193,35 @@ public struct AnyCodable: Codable, Sendable, Equatable {
     }
   }
 
-  public func encode(to encoder: Encoder) throws {
-    var container = encoder.singleValueContainer()
+  /// Dynamic key used to emit a mapping's keys in an explicitly chosen order.
+  ///
+  /// This mirrors `CastMember.DynamicCodingKey`
+  /// (`Sources/SwiftReparto/CastMember.swift`): a keyed container obtained
+  /// from this type lets the caller choose exactly which key is written next,
+  /// rather than handing a `Dictionary` to the encoder and inheriting its
+  /// (per-process-seeded) iteration order. See `encode(to:)` below for why
+  /// that distinction is load-bearing here.
+  private struct DynamicCodingKey: CodingKey {
+    var stringValue: String
+    var intValue: Int?
 
+    init(stringValue: String) {
+      self.stringValue = stringValue
+      self.intValue = nil
+    }
+
+    init?(intValue: Int) {
+      self.stringValue = "\(intValue)"
+      self.intValue = intValue
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
     // Symmetric with the decodeNil() check in init(from:): a null
     // AnyCodable re-emits a literal `null`, not the string "null", an empty
     // object, or a missing key.
     if isNull {
+      var container = encoder.singleValueContainer()
       try container.encodeNil()
       return
     }
@@ -209,19 +231,49 @@ public struct AnyCodable: Codable, Sendable, Equatable {
     decoder.dateDecodingStrategy = .iso8601
 
     if let bool = try? decoder.decode(Bool.self, from: encodedData) {
+      var container = encoder.singleValueContainer()
       try container.encode(bool)
     } else if let int = try? decoder.decode(Int.self, from: encodedData) {
+      var container = encoder.singleValueContainer()
       try container.encode(int)
     } else if let double = try? decoder.decode(Double.self, from: encodedData) {
+      var container = encoder.singleValueContainer()
       try container.encode(double)
     } else if let string = try? decoder.decode(String.self, from: encodedData) {
+      var container = encoder.singleValueContainer()
       try container.encode(string)
     } else if let array = try? decoder.decode([AnyCodable].self, from: encodedData) {
+      // Sequence order is data, not incidental (see the file-level task
+      // note): `[AnyCodable]`'s own `Encodable` conformance walks an
+      // unkeyed container in array order, so handing it to the single-value
+      // container here is fine as-is. Each element that is itself a mapping
+      // still gets sorted, because encoding an element recurses into this
+      // same `encode(to:)`.
+      var container = encoder.singleValueContainer()
       try container.encode(array)
     } else if let dict = try? decoder.decode([String: AnyCodable].self, from: encodedData) {
-      try container.encode(dict)
+      // THE FIX (Sortie 8a): do not hand `dict` to the encoder directly.
+      // `Dictionary`'s `Encodable` conformance iterates its own storage
+      // order, which Swift seeds per process — stable within one run (which
+      // is why Sortie 8's 25-iteration in-process test was already green)
+      // but not guaranteed to match between two separate invocations. A
+      // `CastMember`'s top-level `extraKeys` is safe because
+      // `CastMember.encode(to:)` iterates `extraKeys.keys.sorted()` itself;
+      // this is the same fix, applied here because a mapping *nested inside*
+      // an extra's value has no such caller and must sort itself.
+      //
+      // Each value is an `AnyCodable`, so encoding it through this keyed
+      // container calls back into this very `encode(to:)` on a nested
+      // encoder — sorting therefore applies at every nesting depth without
+      // any explicit depth tracking.
+      var dynamicContainer = encoder.container(keyedBy: DynamicCodingKey.self)
+      for key in dict.keys.sorted() {
+        guard let value = dict[key] else { continue }
+        try dynamicContainer.encode(value, forKey: DynamicCodingKey(stringValue: key))
+      }
     } else {
       // Fallback: encode as raw data
+      var container = encoder.singleValueContainer()
       try container.encode(encodedData)
     }
   }
