@@ -4,6 +4,8 @@ title: SwiftReparto — Requirements
 status: beta
 created: 2026-08-01
 target_version: first beta release
+state: complete
+updated: 2026-08-02
 ---
 
 # SwiftReparto — Requirements

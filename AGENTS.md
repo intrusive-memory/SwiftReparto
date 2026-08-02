@@ -15,14 +15,14 @@ one document, not three copies to keep in sync.
 SwiftReparto owns `CAST.md`: the schema, the parser, the serializer, and the
 round-trip guarantees for a production's cast list. Ships as two products —
 the `SwiftReparto` library and the `reparto` executable. No GUI, no models,
-no network. See [REQUIREMENTS.md](REQUIREMENTS.md) for the full contract and
-[EXECUTION_PLAN.md](EXECUTION_PLAN.md) for the mission that built it
+no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIREMENTS.md) for the full contract and
+[EXECUTION_PLAN.md](docs/complete/operation-troupe-marshal/EXECUTION_PLAN.md) for the mission that built it
 (OPERATION TROUPE MARSHAL, Decisions D-1 through D-13).
 
 ## Current version
 
-**Tag `v0.1.0-beta.1` — version string `0.1.0-beta.1`** (published as a
-GitHub **prerelease**; the initial release of this package, set by Sortie 20).
+**Tag `v0.1.0` — version string `0.1.0`** (the first **stable** release of
+this package, promoted from prerelease `v0.1.0-beta.1`).
 
 The two spellings are deliberate and both are load-bearing:
 
@@ -30,9 +30,9 @@ The two spellings are deliberate and both are load-bearing:
   (SwiftEscribo `v0.1.0`…`v0.3.0`, SwiftProyecto `v4.8.1`). Use it for
   `gh release download` and anything else that names a git ref.
 - **`Sources/RepartoCLICore/RepartoVersion.swift`'s `RepartoVersion.current`
-  does not** — it is `"0.1.0-beta.1"`. `release.yml` derives the tarball name
+  does not** — it is `"0.1.0"`. `release.yml` derives the tarball name
   from `VERSION="${TAG#v}"`, so the constant, `reparto --version`, and
-  `reparto-0.1.0-beta.1-arm64-macos.tar.gz` all agree character-for-character,
+  `reparto-0.1.0-arm64-macos.tar.gz` all agree character-for-character,
   and SwiftPM's `exact:` requirement takes that same unprefixed string.
 
 The constant and this section must always name the same release —
@@ -337,6 +337,22 @@ no Homebrew formula during the beta.** One is created — by hand, in the tap
 — when the first *stable* (non-prerelease) release ships. Do not create one
 early to "get ahead of it," and do not promote a beta tag to a full release
 just to make the tap notice it.
+
+## Queryable Codemap
+
+A prebuilt [graphify](https://pypi.org/project/graphifyy/) knowledge graph of this
+codebase lives in [`graphify-out/`](graphify-out/) (671 nodes · 1325 edges). **Prefer
+querying it before grepping** for architecture or "what connects to what" questions:
+
+```bash
+graphify query "How does X flow through the system?"
+graphify path "TypeA" "TypeB"      # shortest path between two nodes
+graphify explain "SomeType"        # plain-language node explanation
+```
+
+Human-readable summary: [`graphify-out/GRAPH_REPORT.md`](graphify-out/GRAPH_REPORT.md).
+Refresh after significant changes with `/codemap` (or
+`graphify . --backend claude-cli`).
 
 ## Testing and this document
 

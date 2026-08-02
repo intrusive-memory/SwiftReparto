@@ -1,7 +1,7 @@
 ---
 type: doc
-updated: 2026-08-01
-status: beta
+updated: 2026-08-02
+status: stable
 ---
 
 # SwiftReparto
@@ -13,7 +13,7 @@ Part of the [intrusive-memory](https://github.com/intrusive-memory) ecosystem. S
 **SwiftReparto** library plus a `reparto` executable — no GUI, no models, no network.
 
 > **Status: beta.** Two products ship: the `SwiftReparto` library and the
-> `reparto` executable. See [REQUIREMENTS.md](REQUIREMENTS.md) for the full
+> `reparto` executable. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIREMENTS.md) for the full
 > contract and [AGENTS.md](AGENTS.md) for the standing rules a consumer or
 > contributor needs — the schema version, the CLI's exit codes, and the YAML
 > dialect this library reads.
@@ -76,17 +76,18 @@ the other's keys, and neither writes the file.
 
 ## Install
 
-Two products, two install paths. There is no Homebrew formula yet — the org's
-tap only tracks stable releases, and this is a beta (see
+Two products, two install paths. There is no Homebrew formula yet — the
+tap's reconcile only re-resolves formulas that already exist, so the first
+formula is created by hand in the tap now that a stable release exists (see
 [AGENTS.md](AGENTS.md#release) for exactly why).
 
 ### The library, via Swift Package Manager
 
 ```swift
-.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", exact: "0.1.0-beta.1")
+.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", exact: "0.1.0")
 ```
 
-(The git tag is `v0.1.0-beta.1`; SwiftPM's `exact:` takes the unprefixed
+(The git tag is `v0.1.0`; SwiftPM's `exact:` takes the unprefixed
 semver and resolves the `v`-prefixed tag itself.)
 
 Then depend on the `SwiftReparto` product in the target that reads or writes
@@ -96,14 +97,14 @@ carries no CLI dependency.
 ### The `reparto` binary, via `gh release download`
 
 ```sh
-gh release download v0.1.0-beta.1 \
+gh release download v0.1.0 \
   --repo intrusive-memory/SwiftReparto \
   --pattern 'reparto-*-arm64-macos.tar.gz'
 tar xzf reparto-*-arm64-macos.tar.gz
 ./reparto --version
 ```
 
-Every release — including this beta — attaches an arm64 macOS tarball; see
+Every release — prereleases included — attaches an arm64 macOS tarball; see
 `.github/workflows/release.yml`.
 
 ## Usage
@@ -156,7 +157,7 @@ mutating it — useful as a pre-commit or CI check on hand-edited cast files.
 
 ## Documentation
 
-- [REQUIREMENTS.md](REQUIREMENTS.md) — schema, API, invariants, acceptance criteria.
+- [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIREMENTS.md) — schema, API, invariants, acceptance criteria.
 - [AGENTS.md](AGENTS.md) — standing rules: the leaf invariant, the one-writer
   rule, the schema version policy, the YAML dialect, the CLI's exit codes,
   and why there's no Homebrew formula yet.
