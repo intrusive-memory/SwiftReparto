@@ -308,39 +308,49 @@ Two products, one release process: a release is a **tag + GitHub release
 from `main`**, and `.github/workflows/release.yml` (triggered by
 `release: published`, or manually via `workflow_dispatch`) runs `make
 release` and attaches an **arm64 macOS tarball**
-(`reparto-<version>-arm64-macos.tar.gz`, plus its SHA-256) to that release.
-`release: published` fires for prereleases too — deliberate, so a beta gets
-a downloadable tarball via `gh release download` even though Homebrew (see
-below) will never see it.
+(`reparto-<version>-arm64-macos.tar.gz`) to that release. The tarball's
+SHA-256 is computed and printed in the workflow's job summary but is
+**not attached as an asset** — deliberate; the Homebrew tap computes its
+own hash from the asset it downloads. `release: published` fires for
+prereleases too — deliberate, so a beta gets a downloadable tarball via
+`gh release download` even though Homebrew (see below) never tracks a
+prerelease.
 
-### Homebrew: deferred for the entire beta — here is exactly why
+### Homebrew: live since v0.1.0 — how the formula is maintained
 
-The org's `intrusive-memory/homebrew-tap` is **pull**-based:
-`scripts/reconcile-formulas.sh` runs on a **6-hour cron**, using only its own
-`GITHUB_TOKEN`. Source repos — this one included — never dispatch to it; the
-push direction (a cross-repo `repository_dispatch` using an org deploy
-token) is dead, because that token expired and was deleted in July 2026.
+`brew install intrusive-memory/tap/reparto` works as of 2026-08-02:
+`Formula/reparto.rb` exists in `intrusive-memory/homebrew-tap`, created by
+hand when `v0.1.0` — the first stable release — shipped. That hand-creation
+was required, not an accident of history, and the reasons still govern how
+the formula is maintained:
 
-Two verified facts in that script decide when a formula for this repo can
-exist at all:
+The tap is **pull**-based: `scripts/reconcile-formulas.sh` runs on a
+**6-hour cron**, using only its own `GITHUB_TOKEN`. Source repos — this one
+included — never dispatch to it; the push direction (a cross-repo
+`repository_dispatch` using an org deploy token) is dead, because that
+token expired and was deleted in July 2026.
 
-1. **It iterates `Formula/*.rb`** (`reconcile-formulas.sh:41` —
-   `for formula_file in Formula/*.rb; do`). It only *re-resolves* formulas
-   that already exist in the tap; it has no code path that discovers a new
-   repo on its own. **The first formula for `reparto` has to be created by
-   hand, in the tap repo, by someone.**
-2. **It resolves the version to bump to via
-   `repos/<owner>/<repo>/releases/latest`** (`reconcile-formulas.sh:66-68`),
-   and that GitHub API endpoint **deliberately excludes prereleases** — a
-   404 there is read by the script as "no stable release yet" and the
-   formula is left alone.
+Two verified facts in that script decide everything:
 
-Put together: even if a formula existed today, the cron would never move it
-to a beta tag, and no formula is created automatically regardless. **Therefore:
-no Homebrew formula during the beta.** One is created — by hand, in the tap
-— when the first *stable* (non-prerelease) release ships. Do not create one
-early to "get ahead of it," and do not promote a beta tag to a full release
-just to make the tap notice it.
+1. **It iterates `Formula/*.rb`** (`reconcile-formulas.sh:41`). It only
+   *re-resolves* formulas that already exist in the tap — which is why the
+   first `reparto` formula had to be created by hand, and why a rename of
+   the binary or tarball would need a matching hand-edit in the tap.
+2. **It resolves the version via `repos/<owner>/<repo>/releases/latest`**
+   (`reconcile-formulas.sh:66-68`), an endpoint that **deliberately
+   excludes prereleases**, and it constructs the asset URL as
+   `<formula>-<version>-arm64-macos.tar.gz`.
+
+Consequences for this repo, going forward:
+
+- **A stable release here is picked up automatically** within ~6 hours —
+  no dispatch, no manual bump. Do not hand-bump the formula for a routine
+  release; the cron owns it.
+- **A prerelease is invisible to the tap**, always. Never promote a beta
+  tag to a full release just to make the tap notice it.
+- **The tarball naming convention is load-bearing for brew**: rename the
+  asset and the cron's constructed URL 404s, which surfaces as a warning
+  in the tap's reconcile summary, not an error here.
 
 ## Queryable Codemap
 
