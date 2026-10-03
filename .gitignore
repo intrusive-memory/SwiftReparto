@@ -20,11 +20,12 @@ xcuserdata/
 # macOS
 .DS_Store
 
-# NOTE: Package.resolved is deliberately TRACKED, reversing the org's
-# library-package convention (see `spm-package-audit`). This package ships an
-# executable, and a binary built by CI from an unpinned dependency graph is not
-# reproducible. SwiftProyecto, which also ships a CLI, tracks it for the same
-# reason. Do not add it here.
+# Package.resolved is NOT tracked, following the org's library-package
+# convention (see `spm-package-audit`). CI regenerates it with `make resolve`
+# before `scripts/check-leaf-invariant.sh` reads it. The accepted cost: the
+# release binary is built from whatever versions resolve at build time, within
+# the ranges Package.swift declares.
+Package.resolved
 
 # graphify codemap: commit the portable graph artifacts, ignore machine-specific
 # markers (absolute paths), the regenerable cache, and the absolute-path manifest.

@@ -50,6 +50,11 @@ jobs:
       # living in a job that is not a required status check can go red on a PR
       # that still merges green. `swift package dump-package` (used inside the
       # script) is a manifest-dump command, not a build, and is permitted here.
+      # Package.resolved is gitignored, so the checkout does not carry one. The
+      # leaf-invariant script below reads its pins and fails if it is absent.
+      - name: Resolve package dependencies
+        run: make resolve
+
       - name: Check leaf invariant (RQ-INV-1)
         run: ./scripts/check-leaf-invariant.sh
 
