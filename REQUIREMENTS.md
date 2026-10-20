@@ -2,19 +2,20 @@
 type: requirements
 state: draft
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-10-19
 target_version: 0.2.0
 controlling_doc: ../SwiftSemblanzas/REQUIREMENTS.md (§5, "The character record")
 ---
 
 # SwiftReparto 0.2.0: character record support
 
-The character record, defined in SwiftSemblanzas REQUIREMENTS §5, starts at
-`CAST.md`. Each cast member points to a per-character directory named with the
-character's exact UPPERCASE screenplay name:
+The character record (a `.dossier` bundle, defined by
+[dossier-format](https://github.com/intrusive-memory/dossier-format)
+`docs/DOSSIER-FORMAT.md`) starts at `CAST.md`. Each cast member with a dossier
+points to its manifest:
 
 ```
-characters/<CHARACTER>/manifest.json
+characters/<CHARACTER>.dossier/manifest.json
 ```
 
 This document covers what SwiftReparto, the only reader and writer of
@@ -22,7 +23,7 @@ This document covers what SwiftReparto, the only reader and writer of
 
 1. **`role`**: a new first-class field, the member's casting tier (RQ-19).
 2. **`manifest`**: a new first-class field, the path to the character's
-   manifest (RQ-20, RQ-21).
+   manifest, opaque to Reparto (RQ-20). RQ-21 is withdrawn.
 3. **Canonical character names**, defined here because this is the leaf
    package every consumer links (RQ-22).
 4. **`appearance` is deprecated** and will never be declared (RQ-25).
@@ -41,7 +42,7 @@ IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 |----|--------|------|
 | RQ-19 | `role: CastRole?` | New declared field |
 | RQ-20 | `manifest: String?` | New declared field |
-| RQ-21 | Manifest path ↔ name invariant, checked as strings only | New validation (non-fatal) |
+| RQ-21 | *Withdrawn 2026-10-19.* Manifest path ↔ name invariant | — |
 | RQ-22 | `CastMember.canonicalName(_:)` and the canonical match key | New API, changed matching |
 | RQ-23 | `CodingKeys` order | Write format |
 | RQ-24 | Merge rules for `role` / `manifest` | Merge behavior |
@@ -98,7 +99,15 @@ IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
   a Yams round-trip byte-for-byte. Quote them whenever Yams would otherwise
   misread the string.
 
-### RQ-21: manifest path ↔ name invariant (string check only)
+### RQ-21: manifest path ↔ name invariant (withdrawn)
+
+**Withdrawn 2026-10-19** (dossier-format decision D1, Personaje OQ-3). Reparto
+keeps `manifest` an opaque path and knows nothing about the shape of a
+dossier. The check belongs to the dossier validator, which reports it as
+`E-NAME-MISMATCH` / `W-POINTER` (dossier-format `docs/DOSSIER-FORMAT.md` §3,
+§14). Do not implement `manifestNameMismatch`. The original text is kept
+below for the record.
+
 
 SwiftSemblanzas requires that a manifest's parent directory have exactly the
 member's name. Reparto can check this **as a string, without touching the
