@@ -238,18 +238,9 @@ private struct ProjectCastBlock: Decodable {
     cast = members
   }
 
-  /// Recognizes a missing `character` field and reports which member lacked it.
-  ///
-  /// Only that one failure is translated; every other `DecodingError` is
-  /// returned unchanged, because flattening them all would report the wrong
-  /// cause for a type mismatch three levels down.
+  /// Recognizes a missing `character` field or an unknown `role` and reports
+  /// which member it was. See `translateMemberDecodingError(_:atMemberIndex:)`.
   private static func translate(_ error: DecodingError, atMemberIndex index: Int) -> Error {
-    guard
-      case .keyNotFound(let key, _) = error,
-      key.stringValue == CastMember.CodingKeys.character.stringValue
-    else {
-      return error
-    }
-    return CastParseError.missingCharacter(index: index)
+    translateMemberDecodingError(error, atMemberIndex: index)
   }
 }

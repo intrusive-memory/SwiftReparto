@@ -33,10 +33,26 @@ enum TestFixture: String {
   /// as bytes and never regenerated.
   case confessionsCastMD = "confessions-CAST.md"
 
-  /// Exercises every declared `CastMember` field plus an undeclared key and a
-  /// nested `appearance:` block — the standing proof that D-3's deferral is
-  /// lossless.
+  /// Exercises the 0.1.0 declared `CastMember` fields plus an undeclared key
+  /// and a nested **legacy** `appearance:` block. `appearance` is deprecated
+  /// and never declared (RQ-25); this fixture is the standing proof that such
+  /// a block still round-trips losslessly through `extraKeys`. Its bytes are
+  /// unchanged since 0.1.0 (acceptance criterion 2).
   case allFieldsCastMD = "all-fields-CAST.md"
+
+  /// 0.2.0 acceptance criterion 1: `role:` and `manifest:` as declared fields,
+  /// in emitted form, including a manifest path with a space in it. Pins the
+  /// emission position of both keys (RQ-23 withdrawn). Synthetic data.
+  case roleManifestCastMD = "role-manifest-CAST.md"
+
+  /// RQ-24 migration: a document as a 0.1.0 writer emitted it while `role` and
+  /// `manifest` were undeclared extras (after `voices`, sorted). Synthetic
+  /// stand-in for a live roster with the same shape.
+  case preRoleManifestCastMD = "pre-0.2.0-role-manifest-CAST.md"
+
+  /// RQ-19: the second member carries `role: star`.
+  /// Expects ``CastParseError/invalidRole(index:value:)`` with index 1.
+  case rejectInvalidRole = "reject-invalid-role.md"
 
   /// A valid cast document with no `schemaVersion` key, exercising D-5's
   /// legacy path. Deliberately **not** in emitted form — see the file's own
