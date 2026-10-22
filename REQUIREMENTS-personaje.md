@@ -96,11 +96,21 @@ member or overwrites a field it doesn't own:
 | SwiftPersonaje `cast-import` | creates the roster | as `reparto import` | `ProjectCastImporter` |
 | SwiftDossier `create` / `migrate` (SD-12) | adds if absent | `role`, `manifest` | Reparto |
 | SwiftPersonaje `voice` | — | `voicePrompt`; `voices.voxalta` on `--adopt` | Reparto |
-| SwiftEchada (EC-25) | — | `voices.voxalta` | Reparto |
+| SwiftEchada `generate vox`, `cast` (EC-25) | — | `voices.voxalta` | Reparto |
 | Produciesta | — | voice assignments (`voices.*`) | Reparto |
 | A person | any | any | an editor; the next library write normalizes it |
 
 Nobody writes the body yet (Personaje Q4: only after Reparto defines it).
+
+`echada voice` is not a CAST.md writer: it writes only its `--output`
+`.vox` (`VoiceCommand.swift:133`), which is why `personaje voice` sets the
+fields itself. **`voices.voxalta` has two owners, and they collide until
+SwiftEchada ships EC-23:** `generate vox` and `cast` always target
+`voices/<NAME>.vox` (`CastVoiceGenerator.swift:331`) and overwrite the
+pointer (`:537`), so a member whose voice `personaje` placed in its dossier
+gets a second voice and loses the reference to the first. SwiftPersonaje
+never runs either command (its §6); EC-23 plus its new EC-30 test makes
+them respect an existing pointer.
 
 What every caller may rely on, and what it may not:
 

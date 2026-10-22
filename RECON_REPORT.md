@@ -2,7 +2,7 @@
 type: recon-report
 state: current
 requirements_file: REQUIREMENTS-personaje.md
-requirements_sha256: 71a2579ebdfd5d0695359cc6f019053d35562e4be298b3d66c3440476f8b8636
+requirements_sha256: e31bd31637e53c5d58a3954309b268972f1e98217f543c0c246dd7609ca10547
 incorporated_requirements_sha256: d24ada457417c370bba4112cea5edd18e1c32fffc7ee685383eaa6bf81dc9c30
 project_head: b7969336af6bd180da55061c532b7e4f233f0ac2
 search_root: ~/Projects
