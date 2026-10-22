@@ -210,9 +210,9 @@ final class CastMemberCodingTests: XCTestCase {
   /// Exit criterion: a member carrying a nested `appearance:` block round-trips
   /// byte-identically through `extraKeys`.
   ///
-  /// This is the standing proof that deferring `Appearance` out of the beta
-  /// (D-3) costs no data: because `appearance` is not a declared key, it is
-  /// swept into the undeclared-key store like any other unknown key.
+  /// Legacy data (RQ-25): `appearance` is deprecated and never declared, so a
+  /// block written before 0.2.0 is swept into the undeclared-key store like
+  /// any other unknown key and costs no data.
   func testNestedAppearanceBlockRoundTripsVerbatimThroughExtraKeys() throws {
     let json = """
       {

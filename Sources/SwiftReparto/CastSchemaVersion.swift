@@ -74,8 +74,10 @@ public enum CastSchemaVersion {
   /// the source document declared.
   ///
   /// Bump it by exactly one whenever the front-matter shape changes in a way
-  /// an older reader would misinterpret — declaring the deferred `appearance`
-  /// field (D-3) is the change already on the books.
+  /// an older reader would misinterpret (D-12). Optional additions an older
+  /// reader carries through `extraKeys` unchanged do not qualify: 0.2.0
+  /// declared `role` and `manifest` without a bump (D-14). No bump is planned;
+  /// `appearance` is deprecated and will never be declared (RQ-25).
   public static let current: Int = 1
 
   /// The sentinel carried by a document that declared no version at all.

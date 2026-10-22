@@ -32,7 +32,7 @@ The completed 0.1.0 spec is `docs/complete/operation-troupe-marshal/REQUIREMENTS
 Everything in it still holds unless a requirement below says it's superseded.
 IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 
-**Status: requirements only. No implementation yet.**
+**Status: implemented on `requirements/personaje` (0.2.0, not yet released).**
 
 ---
 

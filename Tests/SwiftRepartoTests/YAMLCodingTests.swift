@@ -172,7 +172,7 @@ final class YAMLCodingTests: XCTestCase {
 
   /// A three-level nested mapping under an undeclared key.
   ///
-  /// This is the `appearance:` block's shape (D-3) — the deferred field rides
+  /// This is a legacy `appearance:` block's shape (RQ-25) — the deprecated field rides
   /// the undeclared-key path, and it is not flat.
   func testThreeLevelNestedMappingRoundTrips() throws {
     let nested: [String: [String: [String: String]]] = [
