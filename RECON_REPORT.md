@@ -2,11 +2,11 @@
 type: recon-report
 state: current
 requirements_file: REQUIREMENTS-personaje.md
-requirements_sha256: fe131880d307bfacf0278eb81813fa6d1e098b179376f74a406b773ee7f560f6
+requirements_sha256: 71a2579ebdfd5d0695359cc6f019053d35562e4be298b3d66c3440476f8b8636
 incorporated_requirements_sha256: d24ada457417c370bba4112cea5edd18e1c32fffc7ee685383eaa6bf81dc9c30
 project_head: b7969336af6bd180da55061c532b7e4f233f0ac2
 search_root: ~/Projects
-generated: 2026-10-21
+generated: 2026-10-22
 verdict: CLEAR
 ---
 
@@ -120,6 +120,20 @@ longer tracked.
   here, because RP-P13 keeps counts and scenes out of CAST.md.
 - **Compartido's `Docs/REQUIREMENTS_PERSONAJE.md` is still `state: draft`**,
   even though 7.3.0 shipped it.
+
+### Addendum 2026-10-22: who writes CAST.md
+
+The requirements gained a "Who writes CAST.md" section and RP-P16 (writes
+are local on a normalized file). Part 2 is now placed in SwiftPersonaje
+(§7.1) instead of Personaje §5.1, which SwiftPersonaje had already
+superseded. The new premise was checked; no new blocking finding.
+
+| ID | Kind | Claim | Locus | Verdict | Evidence |
+|----|------|-------|-------|---------|----------|
+| A-28 | A-BEHAVIOR | Emission is per-member deterministic, so on a normalized file a one-member change touches only that member's lines | repo | CONFIRMED (config), **untested** | `YAMLCoding.swift:70` `width = -1` (no folding), `:97` `sortKeys = false`; member key order fixed in `CastMember.encode(to:)`. No test asserts locality, so RP-P16 adds one |
+| X-08 | A-DATA | SwiftDossier SD-12 / acceptance 4 required untouched members to keep their bytes on any write | external | CONFIRMED, now restated | SwiftDossier `REQUIREMENTS.md` SD-12 and §9 item 4 at `aa760bf`; restated to "after Reparto's first write" |
+| X-09 | A-DATA | SwiftPersonaje owns the `personaje` CLI and plans to link SwiftCompartido | external | CONFIRMED | SwiftPersonaje `REQUIREMENTS.md:22` ("replaces Personaje REQUIREMENTS §5"), §7 (`evidence` switches to Compartido's query) |
+| X-10 | A-DATA | `reparto canonicalize --apply` exists as the deliberate normalizing write | repo | CONFIRMED (draft) | `REQUIREMENTS.md:161`, acceptance `:273` |
 
 ## Local Dependency Map
 
