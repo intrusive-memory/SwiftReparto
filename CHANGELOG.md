@@ -10,7 +10,7 @@ All notable changes to SwiftReparto are recorded here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [Semantic Versioning](https://semver.org/) once a stable line exists.
 
-## [0.2.0] — Unreleased
+## [0.2.0] — 2026-10-22
 
 The character-record release (REQUIREMENTS.md RQ-19..RQ-25; RQ-21 and RQ-23
 withdrawn). Additive: `CastSchemaVersion.current` stays `1` (D-14), and

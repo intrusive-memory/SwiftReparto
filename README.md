@@ -92,9 +92,8 @@ formula is created by hand in the tap now that a stable release exists (see
 .package(url: "https://github.com/intrusive-memory/SwiftReparto.git", from: "0.2.0")
 ```
 
-(The git tag is `v0.2.0` once released; until then the latest tag is
-`v0.1.0`. SwiftPM takes the unprefixed semver and resolves the
-`v`-prefixed tag itself.)
+(The git tag is `v0.2.0`. SwiftPM takes the unprefixed semver and resolves
+the `v`-prefixed tag itself.)
 
 Then depend on the `SwiftReparto` product in the target that reads or writes
 cast data. `RepartoCLICore` is deliberately not a product — the library
