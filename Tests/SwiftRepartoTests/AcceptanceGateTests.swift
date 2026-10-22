@@ -152,11 +152,12 @@ final class AcceptanceGateTests: XCTestCase {
       ["voices/NARRATOR-updated.vox"])
   }
 
-  // MARK: - The `appearance:` block round-trips byte-identically through `extraKeys` (D-3)
+  // MARK: - Legacy data (RQ-25): `appearance:` round-trips byte-identically through `extraKeys`
 
-  /// `all-fields-CAST.md`'s nested `appearance:` block is not a declared key
-  /// (D-3), so the whole document — block included — must be a byte fixed
-  /// point across a parse/generate cycle.
+  /// `all-fields-CAST.md`'s nested `appearance:` block is a legacy,
+  /// never-declared key (RQ-25, superseding D-3), so the whole document —
+  /// block included — must be a byte fixed point across a parse/generate
+  /// cycle. Acceptance criterion 8's round-trip half.
   func testAppearanceBlockInAllFieldsFixtureRoundTripsByteIdentically() throws {
     let original = try TestFixture.allFieldsCastMD.contents()
     XCTAssertTrue(original.contains("appearance:"), "fixture must exercise D-3's deferral")

@@ -23,6 +23,9 @@ do {
   case var importCommand as ImportCommand:
     importCommand.sink = sink
     command = importCommand
+  case var canonicalize as CanonicalizeCommand:
+    canonicalize.sink = sink
+    command = canonicalize
   default:
     break
   }

@@ -397,13 +397,12 @@ func failureMessage(for error: Error) -> String {
 ///
 /// ## What it rewrites, and what it does not
 ///
-/// Only ``CastMember/voices``, because that is the only declared path field the
-/// beta has. `appearance` is deferred (D-3) and rides in
-/// ``CastMember/extraKeys`` as opaque preserved data, and this function does not
-/// reach into that dictionary: RQ-4 promises undeclared keys re-emit verbatim,
-/// and rewriting strings inside them would break that promise for the sake of
-/// guessing which ones were paths. When `appearance` becomes a declared field,
-/// it is added here — that is part of the cost of declaring it.
+/// The two declared path fields: ``CastMember/voices`` and
+/// ``CastMember/manifest`` (RQ-20). Nothing in ``CastMember/extraKeys`` is
+/// touched — RQ-4 promises undeclared keys re-emit verbatim, and rewriting
+/// strings inside them would break that promise for the sake of guessing
+/// which ones were paths. That includes a legacy `appearance:` block, which is
+/// deprecated and never declared (RQ-25).
 ///
 /// - Parameters:
 ///   - document: The document to normalize.
@@ -426,6 +425,10 @@ internal func relativizingPaths(in document: CastDocument, to directory: URL) ->
       }
     }
     relativized.cast[index].voices = rewritten
+
+    if let manifest = relativized.cast[index].manifest, manifest.hasPrefix(prefix) {
+      relativized.cast[index].manifest = String(manifest.dropFirst(prefix.count))
+    }
   }
   return relativized
 }

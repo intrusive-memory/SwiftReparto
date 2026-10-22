@@ -64,12 +64,11 @@ final class FixtureIntegrityTests: XCTestCase {
     XCTAssertEqual(Array(regenerated.utf8), Array(original.utf8))
   }
 
-  // MARK: - D-3: `all-fields-CAST.md`'s nested `appearance:` block round-trips
+  // MARK: - Legacy data (RQ-25): `all-fields-CAST.md`'s `appearance:` block round-trips
 
-  /// The direct proof that D-3's deferral of `Appearance` costs no data:
-  /// `appearance` is not a declared key, so it rides through `extraKeys`
-  /// verbatim, and the whole document — nested block included — is a byte
-  /// fixed point.
+  /// `appearance` is deprecated and never declared (RQ-25, superseding D-3),
+  /// so a legacy block rides through `extraKeys` verbatim, and the whole
+  /// document — nested block included — is a byte fixed point.
   func testAllFieldsCastFixtureRoundTripsByteForByteIncludingAppearanceBlock() throws {
     let original = try TestFixture.allFieldsCastMD.contents()
     XCTAssertTrue(original.contains("appearance:"), "fixture must exercise D-3's deferral")

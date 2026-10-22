@@ -25,11 +25,11 @@
 
 /// The single place `reparto --version`'s value is declared.
 ///
-/// **Unprefixed by design.** The git tag is `v`-prefixed (`v0.1.0`,
+/// **Unprefixed by design.** The git tag is `v`-prefixed (`v0.2.0`,
 /// per org convention); this constant is not. `release.yml` derives its
 /// tarball name from `VERSION="${TAG#v}"`, so `reparto --version` printing
-/// `0.1.0` is exactly the string embedded in
-/// `reparto-0.1.0-arm64-macos.tar.gz` and exactly what SwiftPM's
+/// `0.2.0` is exactly the string embedded in
+/// `reparto-0.2.0-arm64-macos.tar.gz` and exactly what SwiftPM's
 /// `exact:` requirement takes. The single `v` lives in the tag and nowhere
 /// else.
 public enum RepartoVersion {
@@ -39,5 +39,5 @@ public enum RepartoVersion {
   /// The `-dev` suffix marks a development snapshot cut after the named
   /// release — it is stripped (and the version bumped) at the next ship
   /// cycle, and is never tagged or released.
-  public static let current: String = "0.1.0-dev"
+  public static let current: String = "0.2.0"
 }
