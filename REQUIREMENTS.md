@@ -44,7 +44,7 @@ IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 | RQ-20 | `manifest: String?` | New declared field |
 | RQ-21 | *Withdrawn 2026-10-19.* Manifest path ↔ name invariant | — |
 | RQ-22 | `CastMember.canonicalName(_:)` and the canonical match key | New API, changed matching |
-| RQ-23 | `CodingKeys` order | Write format |
+| RQ-23 | *Withdrawn 2026-10-21.* `CodingKeys` order | — |
 | RQ-24 | Merge rules for `role` / `manifest` | Merge behavior |
 | RQ-25 | `appearance` deprecated | Supersedes RQ-5, closes RQ-Q2 |
 | D-14 | No schema version bump | Decision |
@@ -161,17 +161,15 @@ does not link SwiftSemblanzas.
   `reparto canonicalize [--apply]`. It is a dry-run by default and refuses
   to run if two members would collide.
 
-### RQ-23: `CodingKeys` order
+### RQ-23: `CodingKeys` order (withdrawn)
 
-- The new order is: `character, role, actor, gender, language, voicePrompt,
-  legacyVoiceDescription, voices, manifest`.
-- `role` goes right after `character` because a reader asks "who, and how
-  big a part" first. `manifest` goes last among the declared fields, next to
-  the other path field. `extraKeys` still follow, sorted, as today.
-- **The RQ-11 SHA-256 gate is unaffected.** No existing fixture or live
-  `CAST.md` contains `role:` or `manifest:` today; SwiftEchada doesn't use
-  those extras. Members without them encode byte-identically. New fixtures
-  that include both fields are added and pinned.
+**Withdrawn 2026-10-21.** No emission position is required for `role` or
+`manifest`. Live documents already carry both keys (Granville's `CAST.md`,
+in two different orders), and that is fine: the first 0.2.0 write may move
+them, under the existing "first write is a normalizing write" rule in
+`AGENTS.md`. The position the implementation picks is pinned by the new
+fixtures (§5, criterion 1), and members without either key still encode
+byte-identically, so the RQ-11 SHA-256 gate is unaffected.
 
 ### RQ-24: merge rules
 
@@ -249,7 +247,7 @@ unchanged.
 
 | Consumer | Impact |
 |----------|--------|
-| **SwiftEchada**, the only one wired today (29 files import Reparto; pinned `upToNextMajor(from: "0.1.0")`, so 0.2.0 resolves without a manifest change) | `verify cast` compares `role` and `manifest` as fields. Voice-path changes follow the manifest pointer (SwiftEchada REQUIREMENTS.md). Both use `canonicalName`. |
+| **SwiftEchada**, the only one wired today (29 files import Reparto; pinned `upToNextMajor(from: "0.1.0")`, so 0.2.0 resolves without a manifest change) | `.vox` output follows the `manifest` pointer, and file names use `canonicalName` (SwiftEchada `REQUIREMENTS.md` EC-23, EC-24). `verify cast` was removed in Echada 2.0.0, and nothing in Echada compares `role` / `manifest` as fields. |
 | **SwiftSemblanzas** (docs only) | Reads `manifest`, `role`, `canonicalName`. Never writes `appearance`. |
 | **Personaje** (docs only) | Writes `role` and `manifest` through `CastDocument`. |
 | **Produciesta** | No change. It ignores unknown fields today. |
@@ -262,9 +260,8 @@ unchanged.
    re-encodes byte-identically. Pinned fixture.
 2. Every existing fixture passes the RQ-11 SHA-256 gate unchanged.
 3. `role: star` fails with `CastParseError.invalidRole(index:, value: "star")`.
-4. `manifest: "characters/NARRATOR/manifest.json"` on `NARRATOR` has no
-   mismatch. On `THE PRACTITIONER` it reports a mismatch, and
-   `reparto validate` exits 1.
+4. *Withdrawn with RQ-21.* `manifest` is opaque: any path round-trips and
+   `reparto validate` reports no path-shape finding.
 5. A `manifest` written with an absolute path under the CAST.md directory is
    emitted as relative.
 6. `canonicalName` passes a table test covering every example in RQ-22,
