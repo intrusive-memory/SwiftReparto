@@ -29,7 +29,7 @@ import SwiftReparto
 /// Every exit code this build of `reparto` can produce (Sortie 17 task 6).
 ///
 /// Declared once so the codes documented in ``RepartoCommand``'s help text
-/// and the codes ``exitCode(for:)`` actually returns are the same four
+/// and the codes ``exitCode(for:)`` actually returns are the same
 /// integers, read from the same place.
 public enum RepartoExitCode {
 
@@ -49,6 +49,10 @@ public enum RepartoExitCode {
 
   /// Any other failure — for example, a file that cannot be read at all.
   public static let ioError: Int32 = 4
+
+  /// `canonicalize` or `import` refused because two members would share a
+  /// canonical name (RQ-22).
+  public static let nameCollision: Int32 = 5
 }
 
 /// The two ways `import` refuses to write without `--force` (tasks 3a, 3b).
@@ -109,6 +113,9 @@ func repartoExitCode(for error: Error) -> Int32 {
   switch error {
   case is CastParseError:
     return RepartoExitCode.parseError
+
+  case is CanonicalizationError:
+    return RepartoExitCode.nameCollision
 
   case let guardError as ImportGuardError:
     switch guardError {

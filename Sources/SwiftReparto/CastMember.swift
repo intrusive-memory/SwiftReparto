@@ -33,21 +33,17 @@ import Foundation
 /// encode (RQ-4), which is how a hand-written `bio:` note survives every write
 /// by every consumer in the ecosystem.
 ///
-/// ## `appearance:` is deliberately absent, and that costs no data
+/// ## `appearance:` is deprecated, and will never be declared (RQ-25)
 ///
-/// There is no `Appearance` type in this beta and no `appearance` case in
-/// ``CodingKeys``. This is D-3, and it is a deferral, not an omission: the
-/// shape SwiftSemblanzas needs (one `lora` path, or a list of adapters with
-/// per-adapter rank, scale, and engine compatibility) is genuinely unscoped,
-/// and shipping a guess in a released schema turns a cheap later addition into
-/// an expensive change.
+/// There is no `Appearance` type and no `appearance` case in ``CodingKeys``,
+/// and there never will be. Visual assets — portraits, sheets, LoRAs, trigger
+/// words — belong in the character's dossier manifest, which ``manifest``
+/// points at. They do not go in `CAST.md`.
 ///
-/// **Because `appearance` is not a declared key, an `appearance:` block in
-/// existing data is swept into ``extraKeys`` and re-emitted verbatim — the
-/// deferral costs no data.** Do not "fix" its absence by declaring it here.
-/// When it is eventually declared, those keys move from ``extraKeys`` to a
-/// typed field, which is a schema change and exactly what the document's
-/// schema version exists to make tractable.
+/// **No data is lost.** An `appearance:` block in existing (legacy) data is
+/// swept into ``extraKeys`` and re-emitted verbatim, exactly as in 0.1.0, and
+/// `reparto validate` warns about it. Do not "fix" its absence by declaring it
+/// here.
 ///
 /// ## Decoding leniency (RQ-3)
 ///
@@ -77,7 +73,18 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   ///
   /// Example: `"NARRATOR"`, `"THE PRACTITIONER"`. Mutable so a character can
   /// be renamed without rebuilding the member.
+  ///
+  /// Decoding keeps this exactly as written (RQ-INV-4). The canonical form is
+  /// ``canonicalName(_:)``'s output; making a document's names canonical is an
+  /// explicit step (`reparto canonicalize --apply`), never a side effect.
   public var character: String
+
+  /// The member's casting tier (RQ-19). See ``CastRole``.
+  ///
+  /// `nil` when the document carries no `role:`. Reparto is permissive here:
+  /// it never requires a role, and what each tier implies is decided by
+  /// SwiftSemblanzas, not by this library.
+  public var role: CastRole?
 
   /// Actor / voice-artist name. Credits and reference only — nothing in this
   /// library resolves it to anything.
@@ -131,12 +138,24 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   /// validate, stat, or canonicalize them (RQ-7).
   public var voices: [String: [String]]
 
+  /// Path to the character's dossier manifest (RQ-20), by convention
+  /// `characters/<CHARACTER>.dossier/manifest.json`.
+  ///
+  /// Relative to the directory containing `CAST.md` (RQ-6). An absolute path
+  /// beneath that directory is relativized when the document is read from a
+  /// file, exactly like ``voices``.
+  ///
+  /// **Opaque to this library** (RQ-7, RQ-21 withdrawn). Reparto never opens,
+  /// stats, or checks the shape of this path; whether it names the right
+  /// dossier is the dossier validator's concern.
+  public var manifest: String?
+
   /// Every per-member key the schema does not declare, preserved verbatim.
   ///
   /// `bio:` is the live case — it exists in production data, nothing in the
   /// ecosystem declares it, and it must survive every write by every consumer
-  /// (RQ-4). An `appearance:` block rides the same path while that field is
-  /// deferred (D-3).
+  /// (RQ-4). A legacy `appearance:` block rides the same path; that field is
+  /// deprecated and never declared (RQ-25).
   ///
   /// The setter is private on purpose (D-8). Nothing needs to replace this
   /// dictionary wholesale, and permitting it reintroduces the exact overwrite
@@ -151,14 +170,18 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   /// Create a cast member.
   public init(
     character: String,
+    role: CastRole? = nil,
     actor: String? = nil,
     gender: Gender? = nil,
     language: String? = nil,
     voicePrompt: String? = nil,
     voices: [String: [String]] = [:],
+    manifest: String? = nil,
     extraKeys: [String: AnyCodable] = [:]
   ) {
     self.character = character
+    self.role = role
+    self.manifest = manifest
     self.actor = actor
     self.gender = gender
     self.language = language
@@ -173,8 +196,7 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   ///
   /// This is the public door onto ``extraKeys``, and it is deliberately the
   /// *only* read path a consumer needs: SwiftSemblanzas reads `bio` through
-  /// it, and everything routed through the deferred `appearance` field arrives
-  /// the same way.
+  /// it, and a legacy `appearance:` block (RQ-25) arrives the same way.
   ///
   /// ```swift
   /// let bio = member[extra: "bio"]
@@ -260,16 +282,24 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   /// `allCases` so the undeclared-key sweep below does not capture it into
   /// ``extraKeys`` and re-emit it alongside `voicePrompt`.
   ///
-  /// There is deliberately no `appearance` case (D-3) — see the type's
+  /// `role` sits directly after `character` and `manifest` directly after
+  /// `voices` (pointers together). No position was mandated (RQ-23
+  /// withdrawn); this one is pinned by the `role-manifest-CAST.md` fixture.
+  /// Both are written only when non-nil, so a member without them encodes
+  /// byte-identically to 0.1.0.
+  ///
+  /// There is deliberately no `appearance` case (RQ-25) — see the type's
   /// documentation.
   enum CodingKeys: String, CodingKey, CaseIterable {
     case character
+    case role
     case actor
     case gender
     case language
     case voicePrompt
     case legacyVoiceDescription = "voiceDescription"
     case voices
+    case manifest
   }
 
   /// Dynamic key used to enumerate and re-emit keys the schema does not
@@ -298,7 +328,7 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   /// This is the mechanism ``CodingKeys``' and ``DynamicCodingKey``'s
   /// documentation both describe: `voicePrompt` and legacy `voiceDescription`
   /// land in the same property, a scalar `voices` provider becomes a
-  /// one-element array, and anything not named above — `bio:`, a deferred
+  /// one-element array, and anything not named above — `bio:`, a legacy
   /// `appearance:` block — is swept into ``extraKeys`` rather than discarded.
   ///
   /// - Parameter decoder: The decoder to read a cast member from.
@@ -307,6 +337,20 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     character = try container.decode(String.self, forKey: .character)
+    // Strict, like `gender`: an unknown tier fails the decode, and
+    // `CastDocument` reports it as `CastParseError.invalidRole`.
+    if let rawRole = try container.decodeIfPresent(String.self, forKey: .role) {
+      guard let decodedRole = CastRole(rawValue: rawRole) else {
+        throw DecodingError.dataCorrupted(
+          DecodingError.Context(
+            codingPath: container.codingPath + [CodingKeys.role],
+            debugDescription: "Unknown cast role '\(rawRole)'.",
+            underlyingError: InvalidRoleValue(value: rawRole)))
+      }
+      role = decodedRole
+    } else {
+      role = nil
+    }
     actor = try container.decodeIfPresent(String.self, forKey: .actor)
     gender = try container.decodeIfPresent(Gender.self, forKey: .gender)
     language = try container.decodeIfPresent(String.self, forKey: .language)
@@ -337,9 +381,11 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     }
     voices = decodedVoices
 
+    manifest = try container.decodeIfPresent(String.self, forKey: .manifest)
+
     // Capture every key the schema does not declare so user-maintained content
-    // (a `bio:` note, an `appearance:` block) is preserved rather than
-    // destroyed on the next write-back (RQ-4, D-3).
+    // (a `bio:` note, a legacy `appearance:` block) is preserved rather than
+    // destroyed on the next write-back (RQ-4, RQ-25).
     let knownKeys = Set(CodingKeys.allCases.map { $0.stringValue })
     let dynamicContainer = try decoder.container(keyedBy: DynamicCodingKey.self)
     var capturedExtras: [String: AnyCodable] = [:]
@@ -364,6 +410,7 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(character, forKey: .character)
+    try container.encodeIfPresent(role, forKey: .role)
     try container.encodeIfPresent(actor, forKey: .actor)
     try container.encodeIfPresent(gender, forKey: .gender)
     try container.encodeIfPresent(language, forKey: .language)
@@ -405,6 +452,8 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
       }
     }
 
+    try container.encodeIfPresent(manifest, forKey: .manifest)
+
     // Re-emit preserved undeclared keys so round-trips are lossless (RQ-4).
     // Sorted, because dictionary iteration order is not stable across runs and
     // RQ-11's SHA-256 gate would fail intermittently otherwise.
@@ -415,5 +464,43 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
         try dynamicContainer.encode(value, forKey: DynamicCodingKey(stringValue: key))
       }
     }
+  }
+}
+
+// MARK: - Member decode-failure translation (RQ-12, RQ-19)
+
+/// The bad value carried by an unknown `role:`, attached as the
+/// `underlyingError` of the `DecodingError` ``CastMember/init(from:)`` throws.
+///
+/// A standalone decode of a member (through any `Decoder`) still sees an
+/// ordinary `DecodingError.dataCorrupted`; only a whole-document decode, which
+/// knows the member's index, turns it into
+/// ``CastParseError/invalidRole(index:value:)``.
+struct InvalidRoleValue: Error, Equatable {
+  let value: String
+}
+
+/// Translates a member's `DecodingError` into the typed ``CastParseError`` that
+/// names it, where one exists.
+///
+/// Shared by `CastDocument` and `ProjectCastImporter` so both decode paths
+/// report the same failures the same way. Only two failures are translated —
+/// a missing `character` and an unknown `role` — and every other
+/// `DecodingError` is returned unchanged, because flattening them would report
+/// the wrong cause for a type mismatch three levels down.
+func translateMemberDecodingError(_ error: DecodingError, atMemberIndex index: Int) -> Error {
+  switch error {
+  case .keyNotFound(let key, _)
+  where key.stringValue == CastMember.CodingKeys.character.stringValue:
+    return CastParseError.missingCharacter(index: index)
+
+  case .dataCorrupted(let context):
+    if let invalid = context.underlyingError as? InvalidRoleValue {
+      return CastParseError.invalidRole(index: index, value: invalid.value)
+    }
+    return error
+
+  default:
+    return error
   }
 }

@@ -163,7 +163,8 @@ public struct CastDocument: Codable, Sendable, Equatable {
   ///
   /// - Throws: ``CastParseError/unsupportedSchemaVersion(found:supported:)``,
   ///   ``CastParseError/missingTypeCast``, ``CastParseError/missingCastKey``,
-  ///   or ``CastParseError/missingCharacter(index:)``. Any other failure
+  ///   ``CastParseError/missingCharacter(index:)``, or
+  ///   ``CastParseError/invalidRole(index:value:)``. Any other failure
   ///   surfaces as the underlying `DecodingError`. A caller that maps decode
   ///   failures onto ``CastParseError/invalidYAML(_:)`` must let
   ///   ``CastParseError`` values through first — they are more specific than
@@ -229,19 +230,9 @@ public struct CastDocument: Codable, Sendable, Equatable {
     try container.encode(cast, forKey: .cast)
   }
 
-  /// Recognizes a missing `character` field and reports which member lacked it.
-  ///
-  /// Only that one failure is translated. Every other `DecodingError` is
-  /// returned unchanged, because flattening them all into
-  /// ``CastParseError/missingCharacter(index:)`` would report the wrong cause
-  /// for a type mismatch three levels down.
+  /// Recognizes a missing `character` field or an unknown `role` and reports
+  /// which member it was. See `translateMemberDecodingError(_:atMemberIndex:)`.
   private static func translate(_ error: DecodingError, atMemberIndex index: Int) -> Error {
-    guard
-      case .keyNotFound(let key, _) = error,
-      key.stringValue == CastMember.CodingKeys.character.stringValue
-    else {
-      return error
-    }
-    return CastParseError.missingCharacter(index: index)
+    translateMemberDecodingError(error, atMemberIndex: index)
   }
 }

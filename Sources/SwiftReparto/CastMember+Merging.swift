@@ -26,33 +26,37 @@
 import Foundation
 
 /// The single source of truth for matching two `character` names as "the same
-/// role" (RQ-14).
+/// role" (RQ-14, RQ-22).
 ///
 /// This exists so `merging(_:)` and any future lookup share one definition
 /// rather than two that quietly drift. It is used **for matching only** — the
-/// normalized string is never stored anywhere and never written back into a
-/// `CastMember`. The `character` field a caller reads back is always exactly
-/// the bytes some real document carried, never this function's output.
+/// key is never stored anywhere and never written back into a `CastMember`.
+/// The `character` field a caller reads back is always exactly the bytes some
+/// real document carried, never this function's output (RQ-INV-4).
 ///
 /// ## Definition
 ///
-/// Two names match when, after the following transform, they are equal:
+/// The key is ``CastMember/canonicalName(_:)``: cue extensions and the `@`
+/// force-marker stripped, whitespace collapsed, uppercased, NFC. So
+/// `NARRATOR (V.O.)`, `narrator` and `NARRATOR` all match, as do
+/// `THE  PRACTITIONER` (two spaces) and `THE PRACTITIONER`, and a composed
+/// `JOSÉ` matches a decomposed one.
 ///
-/// 1. Split the string on any run of one or more Unicode whitespace
-///    characters — this includes ordinary spaces, tabs, newlines, and
-///    non-breaking space (U+00A0), all of which fall under
-///    `CharacterSet.whitespacesAndNewlines`.
-/// 2. Drop empty pieces produced by leading/trailing whitespace, and rejoin
-///    the remaining pieces with a single ASCII space. This simultaneously
-///    trims the ends and collapses internal runs: `"THE  PRACTITIONER"` (two
-///    spaces) and `"THE PRACTITIONER"` (one) both normalize to
-///    `"the practitioner"`, as does a name with a leading/trailing tab or a
-///    stray non-breaking space.
-/// 3. Lowercase the result, so `"narrator"` and `"NARRATOR"` match.
-///
-/// Nothing here canonicalizes Unicode form (e.g. NFC/NFD) or strips
-/// diacritics — only whitespace shape and case are normalized.
+/// A name with no canonical form (empty, or containing `/` or `:`, or starting
+/// with `.`) falls back to ``legacyCastMemberMatchKey(_:)``, the 0.1.0 key, so
+/// such names still match each other case- and whitespace-insensitively. The
+/// fallback is prefixed with a NUL so it can never equal a canonical key.
 func normalizedCastMemberMatchKey(_ character: String) -> String {
+  if let canonical = try? CastMember.canonicalName(character) {
+    return canonical
+  }
+  return "\u{0}" + legacyCastMemberMatchKey(character)
+}
+
+/// The 0.1.0 match key: whitespace trimmed and collapsed, then lowercased.
+///
+/// Only the fallback for names ``CastMember/canonicalName(_:)`` refuses.
+func legacyCastMemberMatchKey(_ character: String) -> String {
   character
     .components(separatedBy: .whitespacesAndNewlines)
     .filter { !$0.isEmpty }
@@ -76,21 +80,27 @@ extension Array where Element == CastMember {
   /// ## Matching
   ///
   /// A `discovered` member is matched to a receiver member when their
-  /// `character` values are equal under ``normalizedCastMemberMatchKey(_:)``
-  /// — case- and whitespace-insensitive. `"narrator"` matches `"NARRATOR"`;
-  /// `"THE  PRACTITIONER"` (two spaces) matches `"THE PRACTITIONER"` (one).
+  /// `character` values have the same canonical name
+  /// (``CastMember/canonicalName(_:)``, RQ-22). `"narrator"` matches
+  /// `"NARRATOR"`; `"THE  PRACTITIONER"` (two spaces) matches
+  /// `"THE PRACTITIONER"` (one); `"NARRATOR (V.O.)"` from an imported cue list
+  /// matches `"NARRATOR"` and backfills it rather than appending a duplicate.
+  /// A name with no canonical form falls back to the 0.1.0 case- and
+  /// whitespace-insensitive key.
   ///
   /// ## What happens on a match — gap-filling, not a no-op
   ///
   /// The receiver's member is returned with every field it already has
-  /// **untouched**: an existing `voicePrompt`, `bio`, `actor`, `gender`,
-  /// `language`, a `voices` entry for a provider it already carries, or any
+  /// **untouched**: an existing `role`, `voicePrompt`, `bio`, `actor`,
+  /// `gender`, `language`, `manifest`, a `voices` entry for a provider it already carries, or any
   /// other `extraKeys` entry is never overwritten by the discovered version,
   /// no matter what that version holds.
   ///
   /// A field the receiver's member does **not** have, but the matched
   /// `discovered` member does, is filled in from `discovered`. This applies
-  /// per-field for `actor`/`gender`/`language`/`voicePrompt`, per-provider for
+  /// per-field for `role`/`actor`/`gender`/`language`/`voicePrompt`/`manifest`
+  /// (RQ-24 — a `manifest` already set is a deliberate pointer and is never
+  /// overwritten), per-provider for
   /// `voices` (a provider key absent from the receiver is added; a provider
   /// key the receiver already has is left exactly as it is, even if
   /// `discovered` carries different paths for that same provider — a shared
@@ -161,6 +171,14 @@ extension CastMember {
   fileprivate func backfilled(from discovered: CastMember) -> CastMember {
     var merged = self
 
+    // RQ-24: fill-if-nil, like every other scalar. A `manifest` that is
+    // already set is a deliberate pointer and is never overwritten.
+    if merged.role == nil {
+      merged.role = discovered.role
+    }
+    if merged.manifest == nil {
+      merged.manifest = discovered.manifest
+    }
     if merged.actor == nil {
       merged.actor = discovered.actor
     }

@@ -1,7 +1,7 @@
 ---
 type: changelog
 title: SwiftReparto — Changelog
-updated: 2026-08-02
+updated: 2026-10-22
 ---
 
 # Changelog
@@ -9,6 +9,50 @@ updated: 2026-08-02
 All notable changes to SwiftReparto are recorded here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [Semantic Versioning](https://semver.org/) once a stable line exists.
+
+## [0.2.0] — 2026-10-22
+
+The character-record release (REQUIREMENTS.md RQ-19..RQ-25; RQ-21 and RQ-23
+withdrawn). Additive: `CastSchemaVersion.current` stays `1` (D-14), and
+every 0.1.0 document encodes byte-identically.
+
+### Added
+
+- **`CastMember.role: CastRole?`** (RQ-19) — `lead`, `supporting`, `guest`,
+  `narrator`, `costar`, `underfive`, `background`, with `displayName` and
+  `isMajor`. Strict decoding: an unknown value throws the new
+  **`CastParseError.invalidRole(index:value:)`**, on both the parse and
+  import paths.
+- **`CastMember.manifest: String?`** (RQ-20) — an opaque, CAST-relative path
+  to the character's dossier `manifest.json`. Relativized on ingest like
+  `voices`; never opened or shape-checked.
+- **`CastMember.canonicalName(_:)`** and **`CharacterNameError`** (RQ-22) —
+  the canonical character name: cue extensions and the `@` marker stripped,
+  whitespace collapsed, uppercase, NFC. Throws (typed) rather than
+  substituting characters. Plus `CastMember.hasCanonicalName`.
+- **`reparto canonicalize <path> [--apply]`** — dry run by default; `--apply`
+  renames and writes; refuses on a name collision.
+- Exit code **5** (`RepartoExitCode.nameCollision`).
+
+### Changed
+
+- **`merging(_:)` matches on the canonical name** (RQ-22): `NARRATOR (V.O.)`
+  now backfills `NARRATOR` instead of appending a duplicate. Names with no
+  canonical form fall back to the 0.1.0 key.
+- **Merge rules for `role` and `manifest`** (RQ-24): filled only when nil; a
+  set `manifest` is never overwritten.
+- `role:` / `manifest:` written as extras by a 0.1.0 writer now load into the
+  typed fields. The first 0.2.0 write may move those keys; data is unchanged.
+- **`reparto validate`** warns (exit 0) for non-canonical names and for
+  `appearance:` blocks. `--quiet` suppresses warnings too.
+- **`reparto import`** canonicalizes every imported name and refuses on a
+  collision.
+
+### Deprecated
+
+- **`appearance`** (RQ-25, supersedes D-3 and RQ-5, closes RQ-Q2). It will
+  never be declared; visual assets belong in the dossier manifest. Existing
+  blocks still round-trip through `extraKeys` unchanged.
 
 ## [0.1.0] — 2026-08-02
 

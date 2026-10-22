@@ -1,6 +1,6 @@
 ---
 type: doc
-updated: 2026-08-02
+updated: 2026-10-22
 status: stable
 ---
 
@@ -60,19 +60,24 @@ whole point.
 ```yaml
 ---
 type: cast
+schemaVersion: 1
 cast:
   - character: NARRATOR
+    role: narrator
     voicePrompt: "Deep authoritative British baritone. Measured pacing."
     voices:
       voxalta: [voices/NARRATOR.vox]
-    appearance:
-      lora: characters/narrator/lora/narrator-v2.safetensors
-      triggerWord: nrrtr_v2
+    manifest: characters/NARRATOR.dossier/manifest.json
 ---
 ```
 
-`voices` is written by SwiftEchada. `appearance` is written by SwiftSemblanzas. Neither reaches for
-the other's keys, and neither writes the file.
+`role` is the casting tier (`lead`, `supporting`, `guest`, `narrator`, `costar`, `underfive`,
+`background`). `manifest` points at the character's dossier, where visual assets live — `CAST.md`
+carries no `appearance` (deprecated in 0.2.0; an existing block is preserved, and `reparto validate`
+warns about it). `voices` is written by SwiftEchada. No consumer writes the file itself.
+
+Character names are the screenplay cue, uppercase: `CastMember.canonicalName("narrator (V.O.)")`
+is `"NARRATOR"`, and `merging(_:)` matches on that form.
 
 ## Install
 
@@ -84,11 +89,11 @@ formula is created by hand in the tap now that a stable release exists (see
 ### The library, via Swift Package Manager
 
 ```swift
-.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", exact: "0.1.0")
+.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", from: "0.2.0")
 ```
 
-(The git tag is `v0.1.0`; SwiftPM's `exact:` takes the unprefixed
-semver and resolves the `v`-prefixed tag itself.)
+(The git tag is `v0.2.0`. SwiftPM takes the unprefixed semver and resolves
+the `v`-prefixed tag itself.)
 
 Then depend on the `SwiftReparto` product in the target that reads or writes
 cast data. `RepartoCLICore` is deliberately not a product — the library
@@ -145,7 +150,19 @@ try parser.write(document: document, to: castURL)
 ```
 
 `reparto validate path/to/CAST.md` checks that a file parses at all, without
-mutating it — useful as a pre-commit or CI check on hand-edited cast files.
+mutating it — useful as a pre-commit or CI check on hand-edited cast files. It
+also warns (exit 0) about non-canonical names and deprecated `appearance:` blocks.
+
+### Canonicalize names
+
+```sh
+reparto canonicalize path/to/CAST.md          # dry run: prints each rename
+reparto canonicalize path/to/CAST.md --apply  # renames and writes
+```
+
+`--apply` always writes, so it doubles as the deliberate first (normalizing) write of a
+hand-edited file — commit that change on its own. It refuses if two members would end up
+with the same name.
 
 ## Requirements
 

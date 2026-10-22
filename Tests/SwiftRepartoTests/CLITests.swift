@@ -138,10 +138,11 @@ final class CLITests: XCTestCase {
       .missingTypeCast,
       .missingCastKey,
       .missingCharacter(index: 0),
+      .invalidRole(index: 0, value: "star"),
       .unsupportedSchemaVersion(found: 2, supported: CastSchemaVersion.current),
     ]
 
-    XCTAssertEqual(cases.count, 6, "expected all six CastParseError cases to be exercised")
+    XCTAssertEqual(cases.count, 7, "expected all seven CastParseError cases to be exercised")
 
     for error in cases {
       XCTAssertEqual(

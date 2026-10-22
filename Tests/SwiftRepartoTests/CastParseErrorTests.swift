@@ -30,6 +30,7 @@ final class CastParseErrorTests: XCTestCase {
     .missingTypeCast,
     .missingCastKey,
     .missingCharacter(index: 0),
+    .invalidRole(index: 0, value: "star"),
     .unsupportedSchemaVersion(found: 2, supported: 1),
   ]
 
@@ -42,11 +43,11 @@ final class CastParseErrorTests: XCTestCase {
     for error in Self.allCases {
       switch error {
       case .noFrontMatter, .invalidYAML, .missingTypeCast, .missingCastKey,
-        .missingCharacter, .unsupportedSchemaVersion:
+        .missingCharacter, .invalidRole, .unsupportedSchemaVersion:
         continue
       }
     }
-    XCTAssertEqual(Self.allCases.count, 6)
+    XCTAssertEqual(Self.allCases.count, 7)
   }
 
   // MARK: - Distinguishability by `==`
@@ -78,6 +79,15 @@ final class CastParseErrorTests: XCTestCase {
   func testMissingCharacterDistinguishesItsIndex() {
     XCTAssertEqual(CastParseError.missingCharacter(index: 3), .missingCharacter(index: 3))
     XCTAssertNotEqual(CastParseError.missingCharacter(index: 0), .missingCharacter(index: 1))
+  }
+
+  func testInvalidRoleDistinguishesBothPayloads() {
+    XCTAssertEqual(
+      CastParseError.invalidRole(index: 1, value: "star"), .invalidRole(index: 1, value: "star"))
+    XCTAssertNotEqual(
+      CastParseError.invalidRole(index: 1, value: "star"), .invalidRole(index: 2, value: "star"))
+    XCTAssertNotEqual(
+      CastParseError.invalidRole(index: 1, value: "star"), .invalidRole(index: 1, value: "extra"))
   }
 
   func testUnsupportedSchemaVersionDistinguishesBothOperands() {
@@ -118,6 +128,11 @@ final class CastParseErrorTests: XCTestCase {
 
     let member = CastParseError.missingCharacter(index: 7).errorDescription ?? ""
     XCTAssertTrue(member.contains("7"))
+
+    let role = CastParseError.invalidRole(index: 5, value: "star").errorDescription ?? ""
+    XCTAssertTrue(role.contains("5"))
+    XCTAssertTrue(role.contains("star"))
+    XCTAssertTrue(role.contains("underfive"), "lists the allowed roles")
 
     let version =
       CastParseError.unsupportedSchemaVersion(found: 4, supported: 1).errorDescription ?? ""

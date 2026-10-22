@@ -1,7 +1,7 @@
 ---
 type: doc
 title: SwiftReparto — Agent Instructions
-updated: 2026-08-01
+updated: 2026-10-22
 ---
 
 # AGENTS.md
@@ -21,8 +21,8 @@ no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIRE
 
 ## Current version
 
-**Tag `v0.1.0` — version string `0.1.0`** (the first **stable** release of
-this package, promoted from prerelease `v0.1.0-beta.1`).
+**Version string `0.2.0`** — the character-record release (RQ-19..RQ-25;
+see [REQUIREMENTS.md](REQUIREMENTS.md)), tagged `v0.2.0` from `main`.
 
 The two spellings are deliberate and both are load-bearing:
 
@@ -30,14 +30,18 @@ The two spellings are deliberate and both are load-bearing:
   (SwiftEscribo `v0.1.0`…`v0.3.0`, SwiftProyecto `v4.8.1`). Use it for
   `gh release download` and anything else that names a git ref.
 - **`Sources/RepartoCLICore/RepartoVersion.swift`'s `RepartoVersion.current`
-  does not** — it is `"0.1.0"`. `release.yml` derives the tarball name
+  does not** — it is `"0.2.0"`. `release.yml` derives the tarball name
   from `VERSION="${TAG#v}"`, so the constant, `reparto --version`, and
-  `reparto-0.1.0-arm64-macos.tar.gz` all agree character-for-character,
+  `reparto-0.2.0-arm64-macos.tar.gz` all agree character-for-character,
   and SwiftPM's `exact:` requirement takes that same unprefixed string.
 
 The constant and this section must always name the same release —
 `reparto --version` reads the constant and this file is where a human or
 agent looks first. A future release bumps both together.
+
+Between releases the constant on `development` carries a `-dev` marker
+(`0.1.0-dev` before this bump). The marker is stripped when the next version
+is bumped and is never tagged or released.
 
 ## Hard constraints
 
@@ -121,22 +125,51 @@ action).
   layer run with `sortKeys = false` (required for other reasons below) and
   still produce a stable key position for the SHA-256 round-trip gate.
 
-### `appearance` is deferred (D-3), and here is exactly what that costs
+### `role` and `manifest` (0.2.0, RQ-19 / RQ-20)
 
-There is no `Appearance` type in this beta and no `appearance` case in
-`CastMember.CodingKeys`. The shape SwiftSemblanzas will eventually need — one
-`lora` path, or a list of adapters with per-adapter rank/scale/engine
-compatibility — is genuinely unscoped, and shipping a guess into a released
-schema would turn a cheap future addition into an expensive migration.
+- **`role: CastRole?`** — the casting tier: `lead`, `supporting`, `guest`,
+  `narrator`, `costar`, `underfive`, `background`. Raw values are the wire
+  format. Decoding is strict, like `gender`: an unknown value fails with
+  `CastParseError.invalidRole(index:value:)`. `isMajor` is true for the first
+  four. What each tier requires is SwiftSemblanzas' call, not Reparto's.
+- **`manifest: String?`** — path to the character's dossier
+  `manifest.json`, relative to `CAST.md`'s directory (RQ-6; absolute paths
+  under that directory are relativized on ingest, like `voices`). **Opaque**:
+  Reparto never opens it or checks its shape (RQ-7; RQ-21 withdrawn — the
+  dossier validator owns name/pointer checks).
+- **Emission position**: `role` right after `character`, `manifest` right
+  after `voices`. Both are written only when set, so a member without them
+  encodes byte-identically to 0.1.0 and `schemaVersion` stays `1` (D-14).
+- **Migration from extras**: a 0.1.0-written file with `role:` / `manifest:`
+  as extras loads straight into the typed fields. The first 0.2.0 write may
+  move those keys (normalizing write); data never changes.
 
-Because `appearance` is not a declared key, an `appearance:` block present in
-existing data is swept into `extraKeys` and re-emitted verbatim, exactly like
-a hand-written `bio:`. **The deferral costs no data.** When `Appearance` is
-eventually declared, those keys move from `extraKeys` to a typed field — that
-move *is* a schema change, and it is exactly the migration the
-`schemaVersion` field exists to make tractable: bump `current` by one,
-document what changed, and an older build refuses the new document instead
-of silently mangling it.
+### Canonical character names (0.2.0, RQ-22)
+
+`CastMember.canonicalName(_:)` is the one definition every consumer uses:
+strip trailing cue parentheticals (`(V.O.)`, `(CONT'D)`, any trailing
+`( … )`) and a leading Fountain `@`, collapse whitespace, uppercase
+(locale-independent), NFC. It throws `CharacterNameError` for an empty
+result, `/` or `:`, or a leading `.` — it never substitutes characters.
+
+**RQ-INV-4: Reparto never rewrites `character` unless asked.** Decoding keeps
+names as written. `reparto validate` warns on non-canonical names;
+`reparto canonicalize [--apply]` is the explicit step; `reparto import`
+canonicalizes what it imports.
+
+### `appearance` is deprecated (RQ-25) and will never be declared
+
+There is no `Appearance` type and no `appearance` case in
+`CastMember.CodingKeys`, and there never will be. Visual assets — portraits,
+sheets, LoRAs, trigger words — belong in the character's dossier manifest
+(`manifest:`), not in `CAST.md`. This supersedes D-3's deferral and closes
+RQ-Q2.
+
+**No data loss.** An `appearance:` block in existing data is swept into
+`extraKeys` and re-emitted verbatim, exactly as in 0.1.0 (the
+`all-fields-CAST.md` fixture is the legacy-data proof). `reparto validate`
+warns for each one ("appearance is deprecated; visual assets belong in the
+character manifest (`manifest:`)."), exit 0.
 
 ## `extraKeys` — reachable, not replaceable (D-8)
 
@@ -159,8 +192,9 @@ another repo:
 
 | Consumer | Reads | Writes back |
 |---|---|---|
-| **SwiftEchada** | Full roster | `voices.voxalta` |
-| **SwiftSemblanzas** | `character`, `appearance` (via `extraKeys` while deferred), `bio` (via `extraKeys`) | `appearance.lora`, `appearance.triggerWord` (also via `extraKeys` until D-3 resolves) |
+| **SwiftEchada** | Full roster; `manifest`, `canonicalName` (EC-23, EC-24) | `voices.voxalta` |
+| **SwiftSemblanzas** | `character`, `role`, `manifest`, `canonicalName`, `bio` (via `extraKeys`) | — (never `appearance`, RQ-25) |
+| **SwiftPersonaje / SwiftDossier** | Full roster | Members via `merging(_:)` (`character`); `role`, `manifest`; `voicePrompt`, `voices.voxalta` — see REQUIREMENTS-personaje.md "Who writes CAST.md" |
 | **Produciesta** | Full roster | Voice assignments |
 | **SwiftProyecto** | — | — (**not a consumer** — declares no dependency, retains no cast surface) |
 
@@ -215,11 +249,14 @@ file. (Sortie 10.)
 
 ## `merging(_:)` gap-fills; it does not overwrite
 
-`[CastMember].merging(_:)` (RQ-14) matches on `character`, case- and
-whitespace-insensitively. On a match:
+`[CastMember].merging(_:)` (RQ-14) matches on the **canonical name**
+(RQ-22): `NARRATOR (V.O.)`, `narrator` and `NARRATOR` are one member. A name
+with no canonical form falls back to the 0.1.0 case- and
+whitespace-insensitive key. On a match:
 
 - The receiver keeps **every field it already has**, untouched — an
-  existing `voicePrompt`, `bio`, `actor`, `gender`, `language`, or a
+  existing `role`, `manifest`, `voicePrompt`, `bio`, `actor`, `gender`,
+  `language`, or a
   `voices` entry for a provider it already carries is never overwritten by
   the discovered version, no matter what that version holds.
 - A field the receiver **lacks** is filled in from `discovered` — per-field
@@ -260,31 +297,43 @@ as a defect.
 
 ## CLI
 
-`reparto` ships two subcommands. It is a shell over the library (D-6): every
+`reparto` ships three subcommands. It is a shell over the library (D-6): every
 command's only calls into `SwiftReparto` are `parse`, `generate`, `write`,
-and `ProjectCastImporter` — no command decodes a YAML block, locates a
-document's delimited header, or builds markdown of its own. This is what
-keeps RQ-INV-2's one-writer rule true with a binary in the picture: writing a
-canonical `CAST.md` happens exactly two ways — direct library use, or
-`reparto import` — and both end up inside the same `generate`/`write` pair.
+`ProjectCastImporter`, and `CastMember.canonicalName` — no command decodes a
+YAML block, locates a document's delimited header, or builds markdown of its
+own. This is what keeps RQ-INV-2's one-writer rule true with a binary in the
+picture: writing a `CAST.md` happens through direct library use,
+`reparto import`, or `reparto canonicalize --apply`, and all of them end up
+inside the same `generate`/`write` pair.
 
 - **`reparto validate <path>`** — parses `<path>` as a cast document.
-  Reports nothing on success. `--quiet` suppresses the error message on
-  failure and relies on the exit code alone.
+  Exit 1 on a parse failure. On success it writes warnings (stderr, exit 0)
+  for non-canonical names (RQ-22) and legacy `appearance:` blocks (RQ-25),
+  and nothing else; `manifest` paths draw no finding. `--quiet` suppresses
+  errors and warnings and relies on the exit code alone.
+- **`reparto canonicalize <path> [--apply]`** — makes every `character`
+  canonical (RQ-22). Dry run by default: prints each rename to stdout and
+  writes nothing. `--apply` renames and **always** writes, even with no
+  renames — it is the deliberate normalizing write for a hand-edited file.
+  Refuses (exit 5) with or without `--apply` when two members would share a
+  canonical name. Names with no canonical form are left as written and
+  reported on stderr.
 - **`reparto import <project-md-path> [--output <path>] [--force] [--dry-run]`**
   — imports the `cast:` block out of a `PROJECT.md` and writes a versioned
   `CAST.md`. `--output` defaults to `CAST.md` beside the source file — every
   relative path in the imported roster is relative to *that* directory
   (D-7), so writing elsewhere silently invalidates them. `--dry-run`
   performs the import but writes nothing; the document that would have been
-  written goes to standard output instead.
+  written goes to standard output instead. Every imported name is
+  canonicalized (RQ-22); a collision refuses the import (exit 5) before
+  anything is written.
 
 ### Exit codes
 
 Mapped in exactly one place (`RepartoExitCode` / `repartoExitCode(for:)` in
-`ExitMapping.swift`) so `validate` and `import` cannot drift, and so
+`ExitMapping.swift`) so the subcommands cannot drift, and so
 `reparto --help`'s discussion text and the code that actually computes an
-exit status read the same four constants:
+exit status read the same constants:
 
 | Code | Meaning |
 |---|---|
@@ -293,6 +342,7 @@ exit status read the same four constants:
 | `2` | `import`'s destination already exists (pass `--force` to overwrite). |
 | `3` | `import`'s `--output` is outside the source `PROJECT.md`'s directory (pass `--force` to override). |
 | `4` | Any other failure — for example, a file that cannot be read at all. |
+| `5` | `canonicalize` or `import` would give two members the same canonical name. |
 
 `reparto --help` is the spec. If this table and `--help`'s discussion text
 ever disagree, the code is right and this file is stale — file the
@@ -304,39 +354,49 @@ Two products, one release process: a release is a **tag + GitHub release
 from `main`**, and `.github/workflows/release.yml` (triggered by
 `release: published`, or manually via `workflow_dispatch`) runs `make
 release` and attaches an **arm64 macOS tarball**
-(`reparto-<version>-arm64-macos.tar.gz`, plus its SHA-256) to that release.
-`release: published` fires for prereleases too — deliberate, so a beta gets
-a downloadable tarball via `gh release download` even though Homebrew (see
-below) will never see it.
+(`reparto-<version>-arm64-macos.tar.gz`) to that release. The tarball's
+SHA-256 is computed and printed in the workflow's job summary but is
+**not attached as an asset** — deliberate; the Homebrew tap computes its
+own hash from the asset it downloads. `release: published` fires for
+prereleases too — deliberate, so a beta gets a downloadable tarball via
+`gh release download` even though Homebrew (see below) never tracks a
+prerelease.
 
-### Homebrew: deferred for the entire beta — here is exactly why
+### Homebrew: live since v0.1.0 — how the formula is maintained
 
-The org's `intrusive-memory/homebrew-tap` is **pull**-based:
-`scripts/reconcile-formulas.sh` runs on a **6-hour cron**, using only its own
-`GITHUB_TOKEN`. Source repos — this one included — never dispatch to it; the
-push direction (a cross-repo `repository_dispatch` using an org deploy
-token) is dead, because that token expired and was deleted in July 2026.
+`brew install intrusive-memory/tap/reparto` works as of 2026-08-02:
+`Formula/reparto.rb` exists in `intrusive-memory/homebrew-tap`, created by
+hand when `v0.1.0` — the first stable release — shipped. That hand-creation
+was required, not an accident of history, and the reasons still govern how
+the formula is maintained:
 
-Two verified facts in that script decide when a formula for this repo can
-exist at all:
+The tap is **pull**-based: `scripts/reconcile-formulas.sh` runs on a
+**6-hour cron**, using only its own `GITHUB_TOKEN`. Source repos — this one
+included — never dispatch to it; the push direction (a cross-repo
+`repository_dispatch` using an org deploy token) is dead, because that
+token expired and was deleted in July 2026.
 
-1. **It iterates `Formula/*.rb`** (`reconcile-formulas.sh:41` —
-   `for formula_file in Formula/*.rb; do`). It only *re-resolves* formulas
-   that already exist in the tap; it has no code path that discovers a new
-   repo on its own. **The first formula for `reparto` has to be created by
-   hand, in the tap repo, by someone.**
-2. **It resolves the version to bump to via
-   `repos/<owner>/<repo>/releases/latest`** (`reconcile-formulas.sh:66-68`),
-   and that GitHub API endpoint **deliberately excludes prereleases** — a
-   404 there is read by the script as "no stable release yet" and the
-   formula is left alone.
+Two verified facts in that script decide everything:
 
-Put together: even if a formula existed today, the cron would never move it
-to a beta tag, and no formula is created automatically regardless. **Therefore:
-no Homebrew formula during the beta.** One is created — by hand, in the tap
-— when the first *stable* (non-prerelease) release ships. Do not create one
-early to "get ahead of it," and do not promote a beta tag to a full release
-just to make the tap notice it.
+1. **It iterates `Formula/*.rb`** (`reconcile-formulas.sh:41`). It only
+   *re-resolves* formulas that already exist in the tap — which is why the
+   first `reparto` formula had to be created by hand, and why a rename of
+   the binary or tarball would need a matching hand-edit in the tap.
+2. **It resolves the version via `repos/<owner>/<repo>/releases/latest`**
+   (`reconcile-formulas.sh:66-68`), an endpoint that **deliberately
+   excludes prereleases**, and it constructs the asset URL as
+   `<formula>-<version>-arm64-macos.tar.gz`.
+
+Consequences for this repo, going forward:
+
+- **A stable release here is picked up automatically** within ~6 hours —
+  no dispatch, no manual bump. Do not hand-bump the formula for a routine
+  release; the cron owns it.
+- **A prerelease is invisible to the tap**, always. Never promote a beta
+  tag to a full release just to make the tap notice it.
+- **The tarball naming convention is load-bearing for brew**: rename the
+  asset and the cron's constructed URL 404s, which surfaces as a warning
+  in the tap's reconcile summary, not an error here.
 
 ## Queryable Codemap
 
@@ -356,7 +416,7 @@ Refresh after significant changes with `/codemap` (or
 
 ## Testing and this document
 
-`make test` runs the full suite (241 tests as of WU-5's close, across both
+`make test` runs the full suite (300 tests as of 0.2.0, across both
 macOS and iOS Simulator destinations via `make test` / `make test-ios`).
 In-source API documentation (DocC comments on every public declaration) is a
 separate, later pass — this file does not restate what belongs there.

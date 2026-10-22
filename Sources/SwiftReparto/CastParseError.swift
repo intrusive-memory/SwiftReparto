@@ -110,6 +110,17 @@ public enum CastParseError: Error, LocalizedError, Equatable {
   ///   *something* in the file is wrong.
   case missingCharacter(index: Int)
 
+  /// A member of the `cast:` array carried a `role:` that is not one of
+  /// ``CastRole``'s raw values (RQ-19).
+  ///
+  /// Decoding is strict, like `gender`: an unknown tier is refused rather than
+  /// carried as a string, so a typo such as `role: star` is caught at read time.
+  ///
+  /// - Parameters:
+  ///   - index: The member's zero-based position in the `cast:` array.
+  ///   - value: The unrecognized value, exactly as written.
+  case invalidRole(index: Int, value: String)
+
   /// The document declared a schema version newer than this build supports
   /// (D-12).
   ///
@@ -147,6 +158,12 @@ public enum CastParseError: Error, LocalizedError, Equatable {
 
     case .missingCharacter(let index):
       return "The cast member at index \(index) has no 'character' field, which is required."
+
+    case .invalidRole(let index, let value):
+      let allowed = CastRole.allCases.map(\.rawValue).joined(separator: ", ")
+      return
+        "The cast member at index \(index) has role '\(value)', which is not a known role. "
+        + "Expected one of: \(allowed)."
 
     case .unsupportedSchemaVersion(let found, let supported):
       return
