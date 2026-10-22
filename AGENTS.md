@@ -21,8 +21,8 @@ no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIRE
 
 ## Current version
 
-**Version string `0.2.0`** — the character-record release (RQ-19..RQ-25;
-see [REQUIREMENTS.md](REQUIREMENTS.md)), tagged `v0.2.0` from `main`.
+**Version string `0.2.0-dev`** — development after the `v0.2.0` character-record
+release (RQ-19..RQ-25; see [REQUIREMENTS.md](REQUIREMENTS.md)).
 
 The two spellings are deliberate and both are load-bearing:
 

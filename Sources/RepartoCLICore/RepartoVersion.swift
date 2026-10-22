@@ -39,5 +39,5 @@ public enum RepartoVersion {
   /// The `-dev` suffix marks a development snapshot cut after the named
   /// release — it is stripped (and the version bumped) at the next ship
   /// cycle, and is never tagged or released.
-  public static let current: String = "0.2.0"
+  public static let current: String = "0.2.0-dev"
 }
