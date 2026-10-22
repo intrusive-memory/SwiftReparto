@@ -38,6 +38,13 @@ import SwiftReparto
 /// markdown of its own — and nothing here removes the source `cast:` data
 /// from `PROJECT.md` (D-13); import is read-only with respect to its source.
 ///
+/// **Import canonicalizes names (RQ-22).** Every imported `character` is
+/// passed through ``SwiftReparto/CastMember/canonicalName(_:)``. A name with
+/// no canonical form is kept as written and draws a warning on standard
+/// error; two members that would share a canonical name make the import
+/// refuse, with ``RepartoExitCode/nameCollision``, before anything is
+/// written.
+///
 /// **This command calls the file-URL entry point on `ProjectCastImporter`,
 /// never the one that takes a raw `String` (Sortie 17 directive B).** The
 /// string-taking entry point does not relativize paths — that is only
@@ -59,7 +66,8 @@ public struct ImportCommand: ParsableCommand {
     abstract: "Import a cast roster from a PROJECT.md into a versioned CAST.md.",
     discussion: """
       Reads the cast data out of <project-md-path> and writes it as a \
-      versioned CAST.md. --output defaults to a file named CAST.md beside \
+      versioned CAST.md, with every character name in canonical form \
+      (uppercase, cue extensions removed). --output defaults to a file named CAST.md beside \
       the source PROJECT.md — every relative path the imported roster holds \
       is relative to that directory, so the two files must share it for \
       those paths to still resolve.
@@ -76,6 +84,7 @@ public struct ImportCommand: ParsableCommand {
         \(RepartoExitCode.outputExists)  the destination exists (pass --force to overwrite)
         \(RepartoExitCode.outputDirectoryMismatch)  --output is outside the source directory (pass --force to override)
         \(RepartoExitCode.ioError)  any other failure
+        \(RepartoExitCode.nameCollision)  two imported members share a canonical name
       """
   )
 
@@ -160,7 +169,15 @@ public struct ImportCommand: ParsableCommand {
       ?? sourceURL.deletingLastPathComponent().appendingPathComponent("CAST.md")
 
     do {
-      let document = try ProjectCastImporter().importCast(fileURL: sourceURL)
+      let imported = try ProjectCastImporter().importCast(fileURL: sourceURL)
+      let plan = CanonicalizationPlan(for: imported.cast)
+      if !plan.collisions.isEmpty {
+        throw CanonicalizationError.collision(plan.collisions)
+      }
+      for warning in plan.failureWarnings {
+        sink.writeError(warning + "\n")
+      }
+      let document = plan.applied(to: imported)
       let parser = CastMarkdownParser()
 
       if dryRun {

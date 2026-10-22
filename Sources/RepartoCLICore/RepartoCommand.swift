@@ -67,13 +67,14 @@ public struct RepartoCommand: ParsableCommand {
   /// never say two different things about what a given failure exits with.
   public static let configuration = CommandConfiguration(
     commandName: "reparto",
-    abstract: "Validate and import CAST.md cast documents.",
+    abstract: "Validate, import, and canonicalize CAST.md cast documents.",
     discussion: """
       reparto is a thin shell over the SwiftReparto library: it decodes no \
       YAML, locates no document's delimited header, and builds no markdown \
       of its own. Every write a cast document ever receives happens inside \
       the library, reached either by a program that links SwiftReparto \
-      directly or by `reparto import` — one writer, two doors.
+      directly or by `reparto import` / `reparto canonicalize --apply` — one \
+      writer, several doors.
 
       Exit codes, mapped in exactly one place so they cannot drift between \
       subcommands:
@@ -82,9 +83,10 @@ public struct RepartoCommand: ParsableCommand {
         \(RepartoExitCode.outputExists)  'import' destination already exists (pass --force to overwrite)
         \(RepartoExitCode.outputDirectoryMismatch)  'import' --output is outside the source directory (pass --force to override)
         \(RepartoExitCode.ioError)  any other failure (for example, an unreadable file)
+        \(RepartoExitCode.nameCollision)  'canonicalize' or 'import' would give two members the same name
       """,
     version: RepartoVersion.current,
-    subcommands: [ValidateCommand.self, ImportCommand.self]
+    subcommands: [ValidateCommand.self, ImportCommand.self, CanonicalizeCommand.self]
   )
 
   /// Required by `ParsableCommand` so ArgumentParser can construct the root

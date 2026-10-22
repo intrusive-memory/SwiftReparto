@@ -101,8 +101,9 @@ extension CastMember {
   ///
   /// - Parameter raw: A name as it appears in a cue, a roster, or user input.
   /// - Returns: The canonical name.
-  /// - Throws: ``CharacterNameError`` when no canonical form exists.
-  public static func canonicalName(_ raw: String) throws -> String {
+  /// - Throws: ``CharacterNameError`` when no canonical form exists. The
+  ///   throw is typed, so `catch` needs no fallback clause.
+  public static func canonicalName(_ raw: String) throws(CharacterNameError) -> String {
     var name = Substring(raw)
 
     // 1. Cue decorations. Re-trim after every strip so `NARRATOR (V.O.) `

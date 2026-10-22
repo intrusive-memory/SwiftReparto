@@ -27,12 +27,22 @@ import ArgumentParser
 import Foundation
 import SwiftReparto
 
-/// `reparto validate <path>` — reports whether a document parses (D-6).
+/// `reparto validate <path>` — reports whether a document parses (D-6), and
+/// warns about what parses but should change.
 ///
-/// A thin shell: the only library call is
-/// ``SwiftReparto/CastMarkdownParser/parse(fileURL:)``. Nothing here reads a
-/// YAML block, locates a document's delimited header, or builds markdown of
-/// its own.
+/// A thin shell: the only library calls are
+/// ``SwiftReparto/CastMarkdownParser/parse(fileURL:)`` and
+/// ``SwiftReparto/CastMember/canonicalName(_:)``. Nothing here reads a YAML
+/// block, locates a document's delimited header, or builds markdown of its
+/// own.
+///
+/// Warnings never change the exit code. There are two (0.2.0):
+///
+/// - A member whose `character` is not canonical (RQ-22, RQ-Q4: a warning,
+///   not an error, while live projects still carry mixed case).
+/// - A member carrying a legacy `appearance:` block (RQ-25).
+///
+/// `manifest` is opaque, so there is no path-shape finding (RQ-21 withdrawn).
 public struct ValidateCommand: ParsableCommand {
 
   /// `validate`'s name, abstract, and discussion text.
@@ -49,6 +59,11 @@ public struct ValidateCommand: ParsableCommand {
       not. On failure the parser's own error message is written to standard \
       error, unless --quiet is given; nothing is ever written to standard \
       output.
+
+      A document that parses may still draw warnings on standard error: a \
+      character name that is not canonical (run `reparto canonicalize`), and \
+      a deprecated appearance: block. Warnings never change the exit code, \
+      and --quiet suppresses them too.
       """
   )
 
@@ -56,9 +71,9 @@ public struct ValidateCommand: ParsableCommand {
   @Argument(help: "Path to the CAST.md file to validate.")
   var path: String
 
-  /// Suppresses the error message on failure; the exit code alone reports
-  /// the result.
-  @Flag(name: .long, help: "Suppress the error message; rely on the exit code alone.")
+  /// Suppresses the error message on failure, and every warning; the exit
+  /// code alone reports the result.
+  @Flag(name: .long, help: "Suppress errors and warnings; rely on the exit code alone.")
   var quiet: Bool = false
 
   /// Where this command's output goes (Sortie 17 task 6a). Defaults to the
@@ -108,7 +123,12 @@ public struct ValidateCommand: ParsableCommand {
   ///   non-zero exit, not an error in the ordinary sense.
   public func run() throws {
     do {
-      _ = try CastMarkdownParser().parse(fileURL: URL(fileURLWithPath: path))
+      let document = try CastMarkdownParser().parse(fileURL: URL(fileURLWithPath: path))
+      if !quiet {
+        for warning in validationWarnings(for: document) {
+          sink.writeError(warning + "\n")
+        }
+      }
     } catch {
       if !quiet {
         sink.writeError(errorMessage(for: error) + "\n")
@@ -116,4 +136,36 @@ public struct ValidateCommand: ParsableCommand {
       throw ExitCode(repartoExitCode(for: error))
     }
   }
+}
+
+/// The deprecation warning for a legacy `appearance:` block (RQ-25), worded
+/// as the requirement words it.
+let appearanceDeprecationMessage =
+  "appearance is deprecated; visual assets belong in the character manifest (`manifest:`)."
+
+/// Every warning `validate` reports for a document that parsed, in roster
+/// order.
+///
+/// - Parameter document: A successfully parsed document.
+/// - Returns: One line per finding, without a trailing newline.
+func validationWarnings(for document: CastDocument) -> [String] {
+  var warnings: [String] = []
+  for (index, member) in document.cast.enumerated() {
+    let label = "warning: cast member \(index) ('\(member.character)')"
+    do throws(CharacterNameError) {
+      let canonical = try CastMember.canonicalName(member.character)
+      if canonical != member.character {
+        warnings.append(
+          "\(label): name is not canonical; the canonical form is '\(canonical)'. "
+            + "Run `reparto canonicalize` to see every rename.")
+      }
+    } catch {
+      warnings.append(
+        "\(label): name has no canonical form: \(error.errorDescription ?? "\(error)")")
+    }
+    if member[extra: "appearance"] != nil {
+      warnings.append("\(label): \(appearanceDeprecationMessage)")
+    }
+  }
+  return warnings
 }
