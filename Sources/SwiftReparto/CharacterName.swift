@@ -76,8 +76,9 @@ extension CastMember {
   /// this is the leaf package all of them link. It applies, in order:
   ///
   /// 1. Strips a leading Fountain `@` force-marker, and strips trailing
-  ///    parenthetical cue extensions repeatedly — `(V.O.)`, `(O.S.)`,
-  ///    `(O.C.)`, `(CONT'D)`, and any other balanced `( … )` at the end.
+  ///    parenthetical cue extensions and Fountain's dual-dialogue `^`
+  ///    repeatedly, in any order — `(V.O.)`, `(O.S.)`, `(O.C.)`, `(CONT'D)`,
+  ///    and any other balanced `( … )` at the end.
   /// 2. Trims, and collapses internal whitespace runs to a single space.
   /// 3. Uppercases, locale-independently.
   /// 4. Normalizes to Unicode NFC.
@@ -88,6 +89,7 @@ extension CastMember {
   /// |---|---|
   /// | `NARRATOR (V.O.)` | `NARRATOR` |
   /// | `@McCLANE` | `MCCLANE` |
+  /// | `DUKE (V.O.) ^` | `DUKE` |
   /// | `dr. o'neill` | `DR. O'NEILL` |
   /// | `GUARD #2` | `GUARD #2` |
   /// | `JOSÉ` | `JOSÉ` |
@@ -112,8 +114,16 @@ extension CastMember {
     if name.hasPrefix("@") {
       name = trimmingWhitespace(name.dropFirst())
     }
-    while let stripped = droppingTrailingParenthetical(name) {
-      name = trimmingWhitespace(stripped)
+    // A trailing `^` is Fountain's dual-dialogue mark, not part of the name. It
+    // can sit on either side of a parenthetical, so both come off in one loop.
+    while true {
+      if name.hasSuffix("^") {
+        name = trimmingWhitespace(name.dropLast())
+      } else if let stripped = droppingTrailingParenthetical(name) {
+        name = trimmingWhitespace(stripped)
+      } else {
+        break
+      }
     }
 
     // 2. Whitespace shape.

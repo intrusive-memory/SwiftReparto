@@ -32,6 +32,14 @@ final class CanonicalNameTests: XCTestCase {
       ("NARRATOR (A (B))", "NARRATOR"),
       ("@NARRATOR (V.O.)", "NARRATOR"),
       ("  @ narrator", "NARRATOR"),
+      // Fountain's dual-dialogue mark, on either side of a parenthetical.
+      ("DUKE^", "DUKE"),
+      ("DUKE ^", "DUKE"),
+      ("DUKE (V.O.) ^", "DUKE"),
+      ("DUKE^ (V.O.)", "DUKE"),
+      ("@duke ^", "DUKE"),
+      // Only a *trailing* `^`.
+      ("DU^KE", "DU^KE"),
       // Only a *trailing* parenthetical is a cue extension.
       ("THE (OLD) MAN", "THE (OLD) MAN"),
       ("GUARD)", "GUARD)"),
@@ -66,6 +74,8 @@ final class CanonicalNameTests: XCTestCase {
       ("(V.O.)", .empty(raw: "(V.O.)")),
       ("@", .empty(raw: "@")),
       ("@ (CONT'D)", .empty(raw: "@ (CONT'D)")),
+      ("^", .empty(raw: "^")),
+      ("(V.O.) ^", .empty(raw: "(V.O.) ^")),
       ("AC/DC", .forbiddenCharacter(raw: "AC/DC", character: "/")),
       ("NOTE: ME", .forbiddenCharacter(raw: "NOTE: ME", character: ":")),
       (".HIDDEN", .leadingDot(raw: ".HIDDEN")),

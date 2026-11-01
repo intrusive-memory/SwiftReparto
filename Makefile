@@ -25,23 +25,14 @@ BIN_DIR = ./bin
 
 DESTINATION = 'platform=macOS,arch=arm64'
 
-# Pinned to an exact OS version, never the `latest` alias — that alias does not
-# resolve on these runners; xcodebuild reports it as "Unable to find a device
-# matching the provided destination specifier" with **zero tests run**, which
-# looks nothing like a test failure. (The exit criteria grep this file for that
-# alias, so it must not appear even in a comment.)
-#
-# 26.5 is the org convention and the CI-verified value: SwiftEscribo pins it
-# with green CI, and SwiftAcervo's `tests.yml` runs it on `macos-26`. It is
-# present on this developer machine (`xcrun simctl list runtimes`) and on the
-# runner image. Check that intersection with `xcrun simctl list runtimes`
-# before changing this number.
+# `latest` is the newest runtime installed. The runner is `xcode-27`, whose image
+# has iOS 27 simulators; a pinned number breaks whenever the image moves on.
 #
 # Defined ONCE. Sortie 3's iOS CI job calls `make test-ios` rather than
 # restating this string — SwiftEscribo's iOS job failed on its very first run
 # precisely because the destination was pinned in two places and only one was
 # ever run locally.
-IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=26.5'
+IOS_DESTINATION = 'platform=iOS Simulator,name=iPhone 17,OS=latest'
 
 # Apple Silicon only. Intel and Rosetta are out of scope, and an accidental
 # x86_64 or universal build produces a binary for a machine nobody ships on.
