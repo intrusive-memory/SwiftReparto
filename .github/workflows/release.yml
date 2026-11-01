@@ -33,7 +33,7 @@ permissions:
 jobs:
   build-and-upload:
     name: Build and Upload Binary
-    runs-on: macos-26
+    runs-on: xcode-27
 
     # Deadline for the same reason the test jobs have one. A Release-configuration
     # build from cold is the slowest thing this repo does in CI.

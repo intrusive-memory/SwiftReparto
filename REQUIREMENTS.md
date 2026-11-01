@@ -139,7 +139,9 @@ does not link SwiftSemblanzas.
   following, in order:
   1. Strips a trailing parenthetical cue extension, repeatedly:
      `(V.O.)`, `(O.S.)`, `(O.C.)`, `(CONT'D)`, and any other `( … )` at the
-     end. It also strips a leading Fountain `@` force-marker.
+     end, and a trailing Fountain `^` dual-dialogue mark, in any order (added
+     in 0.2.1 to match dossier-format §2). It also strips a leading Fountain
+     `@` force-marker.
   2. Trims and collapses internal whitespace to single spaces.
   3. Uppercases, locale-independent.
   4. Normalizes to Unicode NFC.

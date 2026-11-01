@@ -1,7 +1,7 @@
 ---
 type: changelog
 title: SwiftReparto — Changelog
-updated: 2026-10-22
+updated: 2026-10-31
 ---
 
 # Changelog
@@ -9,6 +9,19 @@ updated: 2026-10-22
 All notable changes to SwiftReparto are recorded here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [Semantic Versioning](https://semver.org/) once a stable line exists.
+
+## [0.2.1] — 2026-10-31
+
+### Fixed
+
+- **`canonicalName(_:)` strips a trailing `^`,** Fountain's dual-dialogue mark, on
+  either side of a parenthetical: `DUKE^` and `DUKE (V.O.) ^` are `DUKE`. This
+  matches dossier-format §2. `reparto canonicalize` renames such a member, and
+  `merging(_:)` now matches it with `DUKE`.
+
+### Changed
+
+- **CI runs on the `xcode-27` runner image.** The iOS job uses `OS=latest`.
 
 ## [0.2.0] — 2026-10-22
 

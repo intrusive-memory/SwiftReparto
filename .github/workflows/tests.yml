@@ -25,7 +25,7 @@ jobs:
     # gate: protection matches contexts by name, and a renamed job simply never
     # reports the one protection is waiting for.
     name: Test on macOS
-    runs-on: macos-26
+    runs-on: xcode-27
 
     # A job with no deadline burns the GitHub Actions default of six hours and
     # reports nothing. A hang is strictly worse than a failure — a red gate is
@@ -78,7 +78,7 @@ jobs:
   test-ios:
     # Branch-protection context, as above.
     name: Test on iOS Simulator
-    runs-on: macos-26
+    runs-on: xcode-27
 
     # Longer than the macOS job because this one also boots an iPhone 17
     # simulator before it can run anything, and a cold first boot on a shared

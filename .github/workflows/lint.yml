@@ -21,7 +21,7 @@ concurrency:
 jobs:
   lint:
     name: Lint
-    runs-on: macos-26
+    runs-on: xcode-27
 
     # Every gating job in this repo declares a deadline; see tests.yml. Linting
     # a handful of files finishes in seconds, so 15 minutes is many times the
