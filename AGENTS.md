@@ -21,8 +21,8 @@ no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIRE
 
 ## Current version
 
-**Version string `0.2.1`** — `canonicalName` strips Fountain's `^`, on top of the
-`v0.2.0` character-record release (RQ-19..RQ-25; see [REQUIREMENTS.md](REQUIREMENTS.md)).
+**Version string `0.2.1-dev`** — development after `v0.2.1`, where `canonicalName`
+strips Fountain's `^`, on top of the `v0.2.0` character-record release (RQ-19..RQ-25; see [REQUIREMENTS.md](REQUIREMENTS.md)).
 
 The two spellings are deliberate and both are load-bearing:
 
