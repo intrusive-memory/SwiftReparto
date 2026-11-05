@@ -59,6 +59,12 @@ enum TestFixture: String {
   /// header comment.
   case legacyUnversionedCastMD = "legacy-unversioned-CAST.md"
 
+  /// OPERATION RATIONED MEGAPHONE, Sortie 7 (EL-3.4): a NARRATOR with
+  /// `voices.voxalta` and `voices.elevenlabs` as `.vox` paths and a nested
+  /// `voiceSettings.elevenlabs` map, plus a SIDEKICK whose `voices.elevenlabs`
+  /// is a bare ElevenLabs voice id. Synthetic data.
+  case elevenLabsVoicesCastMD = "elevenlabs-voices-CAST.md"
+
   /// Sortie 15: `type: cast` present, `cast:` entirely absent.
   /// Expects ``CastParseError/missingCastKey``.
   case rejectTypeOnly = "reject-type-only.md"
