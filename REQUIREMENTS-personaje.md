@@ -1,9 +1,9 @@
 ---
 type: requirements
 state: draft
-updated: 2026-10-22
+updated: 2026-11-07
 origin: intrusive-memory/Personaje @ 74721c3 (docs/REQUIREMENTS*.md, RECON_REPORT.md)
-sequence: 0 (spec lock), 1 (release 0.2.0)
+sequence: 0 (spec lock), 1 (release 0.2.0), 2 (release 0.3.0: `lineCount`)
 ---
 
 # SwiftReparto — what Personaje needs
@@ -32,6 +32,7 @@ draft `REQUIREMENTS.md` is now committed on this branch (`62721a7`; `4690c30` be
 | RP-P6 | RQ-24: merge rules for the new fields (RQ-23 withdrawn 2026-10-21). A member written at 0.1.0 with `role` / `manifest` in `extraKeys` must load into the declared fields with no data change; key order may change on the first write. | REQUIREMENTS §1 table |
 | RP-P7 | RQ-25: `appearance` deprecated, never declared. | REQUIREMENTS §6 Q3 |
 | RP-P8 | Release 0.2.0. SwiftEchada pins `upToNextMajor(from: "0.1.0")`, so it resolves without a manifest change. | Reparto §4 |
+| RP-P17 | *Added 2026-11-07, release 0.3.0.* RQ-26: `lineCount: Int?` as a declared field on `CastMember`: the lines the character speaks across all the project's episodes, from SwiftCompartido's `extractAllCharacters()` `lineCount`. Derived; only the SwiftPersonaje discovery writer sets it; never hand-edited. Absent means "not counted yet" and round-trips unchanged; a 0.2.x CAST.md without it loads with no data change. **Merge replaces it:** unlike every other field (fill-if-nil, RQ-24), `merging(_:)` takes the incoming `lineCount` whenever it is non-nil, for new and existing members alike, so a rebuild refreshes it; a nil incoming value keeps the receiver's. No schema version bump (D-15). | User decision 2026-11-07; Personaje APP-UI UD21 |
 
 ## Part 2: the discovery writer lives in SwiftPersonaje (decided 2026-10-21)
 
@@ -64,10 +65,10 @@ that copy is now a pointer.)
 | ID | Requirement (owner: SwiftPersonaje) |
 |----|--------------------------------|
 | RP-P9 | Read SwiftCompartido's character collection (CP-P2) and turn each character into a `CastMember`, with the name passed through `canonicalName` (RQ-22). CP-P2 names arrive already uppercased and cut at the first `(` (Compartido `cleanCharacterName`); `canonicalName` is idempotent on them. |
-| RP-P10 | Merge the discovered members into the current CAST.md with `[CastMember].merging(_:)`: add new members, fill only nil fields, never overwrite or remove what a person wrote. Duplicates are members with the same canonical name. |
+| RP-P10 | Merge the discovered members into the current CAST.md with `[CastMember].merging(_:)`: add new members, fill only nil fields, never overwrite or remove what a person wrote. Duplicates are members with the same canonical name. *Changed 2026-11-07:* the one exception is `lineCount` (RP-P17, RQ-26), which discovery sets on every member it discovers on each run, replacing the old value. |
 | RP-P11 | Works on a store holding one screenplay (a series built by repeated merges) or every episode at once; both give the same CAST.md. CP-P2's `characters` is a dictionary, so the writer sorts discovered members deterministically before merging. |
 | RP-P12 | Available from the `personaje` CLI and from the Personaje app (APP-UI §11.1), both through the SwiftPersonaje library. There is no `reparto` command for it. |
-| RP-P13 | Counts (lines, scenes) are **not** written to CAST.md. Personaje reads them from SwiftCompartido for tier suggestions. |
+| RP-P13 | *Changed 2026-11-07:* the line count **is** written to CAST.md, as `lineCount` (RP-P17, RQ-26). Other counts (scenes) are still not; Personaje reads them from SwiftCompartido for tier suggestions. |
 | RP-P14 | Two different names for one person are not merged. That's a review step in Personaje. |
 
 What this package owes the writer, all of it in Part 1 already:
@@ -92,7 +93,7 @@ member or overwrites a field it doesn't own:
 |--------|---------|----------------|---------|
 | `reparto import` | creates the roster | everything in PROJECT.md `cast:` | `ProjectCastImporter` |
 | `reparto canonicalize --apply` (RQ-22) | renames | `character` | Reparto |
-| SwiftPersonaje discovery writer (RP-P9..P14) | adds | `character` only; gap-fills via `merging(_:)` | Reparto |
+| SwiftPersonaje discovery writer (RP-P9..P14, RP-P17) | adds | `character`; gap-fills via `merging(_:)`; `lineCount` on every discovered member, replacing the old value (from 0.3.0) | Reparto |
 | SwiftPersonaje `cast-import` | creates the roster | as `reparto import` | `ProjectCastImporter` |
 | SwiftDossier `create` / `migrate` (SD-12) | adds if absent | `role`, `manifest` | Reparto |
 | SwiftPersonaje `voice` | — | `voicePrompt`; `voices.voxalta` on `--adopt` | Reparto |
@@ -163,7 +164,8 @@ Reparto's own §5 acceptance criteria, plus:
 
 - Part 1 (0.2.0): nothing.
 - Part 2: nothing in this package. SwiftPersonaje's writer depends on SwiftCompartido
-  ≥ 7.3.0 (CP-P2) and on Reparto 0.2.0.
+  ≥ 7.3.0 (CP-P2) and on Reparto 0.2.0; writing `lineCount` needs Reparto 0.3.0
+  (RP-P17).
 
 ## Blocks
 
@@ -184,3 +186,6 @@ Reparto's own §5 acceptance criteria, plus:
   *placed 2026-10-22* in SwiftPersonaje.
 - *Decided 2026-10-22:* who writes CAST.md (bytes: Reparto; fields: per
   caller), and RP-P16.
+- *Decided 2026-11-07:* members carry `lineCount`, written only by discovery
+  and replaced on every merge (RP-P17, RQ-26); release 0.3.0. RP-P10 and
+  RP-P13 amended.
