@@ -55,6 +55,7 @@ RQ-26 and D-15 (added 2026-11-07) are specified, not implemented; they target
 | D-14 | No schema version bump | Decision |
 | RQ-26 | *Added 2026-11-07, 0.3.0.* `lineCount: Int?`, replaced on merge | New declared field, merge behavior |
 | D-15 | *Added 2026-11-07.* No schema version bump for `lineCount` | Decision |
+| RQ-27 | *Added 2026-11-07, 0.3.0.* `castVersion: Int?` in the front matter | New declared front-matter field |
 
 ---
 
@@ -250,8 +251,10 @@ the only source of the cast list).
   project's episodes (screenplays), as counted by the parse. The value is
   SwiftCompartido's `extractAllCharacters()` `lineCount` for that character.
 - **Derived, never hand-edited.** The only writer is cast discovery:
-  SwiftPersonaje's discovery writer, used by `personaje cast-discover` and the
-  Personaje app's "Create CAST.md" / "Rebuild Cast from Episodes". Reparto
+  SwiftPersonaje's discovery writer, run by the Personaje app's "Create
+  CAST.md" / "Rebuild Cast from Episodes". *Changed 2026-11-07:* the
+  Personaje app is the only builder of CAST.md; no other tool writes the cast
+  list (RQ-27). Reparto
   doesn't compute it, check it against anything, or set it on any other path
   (`reparto import`, `canonicalize`).
 - **Absent means "not counted yet"**: a `CAST.md` written before this field,
@@ -281,6 +284,25 @@ the only source of the cast list).
 - **Migration from extras.** A document a newer writer produced before this
   release may carry `lineCount:` as an extra. It decodes straight into the
   typed field, because it is a declared key. No migration step is needed.
+
+### RQ-27: `castVersion` (added 2026-11-07, target 0.3.0)
+
+Decided by the user on 2026-11-07, for the Personaje app's process.
+
+- Add `castVersion: Int?` to `CastDocument`'s front matter, beside `type` and
+  `schemaVersion`. The wire key is exactly `castVersion`.
+- **Meaning.** The number of commits in the project's git repository
+  (`git rev-list --count HEAD`) when the cast was built: the commit the cast
+  list was read from. It is not a format version; `schemaVersion` still is.
+- **Who writes it.** Only the Personaje app, on "Create CAST.md" and "Rebuild
+  Cast from Episodes", which refuse to run unless the project folder is
+  pristine (no uncommitted or untracked changes). Reparto never computes it
+  and never changes it on any other path; a merge leaves it as it is.
+- **Absent** means the file wasn't built by the app (hand-written, or written
+  before 0.3.0). It round-trips unchanged; a 0.2.x file loads with no data
+  change. A value that isn't a non-negative integer fails the parse with
+  `CastParseError.invalidCastVersion(value:)`.
+- No schema version bump (D-12): it's an optional addition.
 
 ### D-15: no schema version bump for `lineCount`
 
@@ -346,6 +368,9 @@ unchanged.
     `lineCount: 12` gives `40`; into a receiver with none gives `40`. Merging
     a member with no `lineCount` into a receiver with `12` keeps `12`. Every
     other field stays fill-if-nil.
+14. *(RQ-27)* A front matter with `castVersion: 57` decodes to `57` and
+    re-encodes unchanged; one without it encodes with no `castVersion` key;
+    `castVersion: -1` fails with `invalidCastVersion`.
 
 ---
 

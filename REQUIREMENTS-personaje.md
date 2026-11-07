@@ -33,6 +33,7 @@ draft `REQUIREMENTS.md` is now committed on this branch (`62721a7`; `4690c30` be
 | RP-P7 | RQ-25: `appearance` deprecated, never declared. | REQUIREMENTS §6 Q3 |
 | RP-P8 | Release 0.2.0. SwiftEchada pins `upToNextMajor(from: "0.1.0")`, so it resolves without a manifest change. | Reparto §4 |
 | RP-P17 | *Added 2026-11-07, release 0.3.0.* RQ-26: `lineCount: Int?` as a declared field on `CastMember`: the lines the character speaks across all the project's episodes, from SwiftCompartido's `extractAllCharacters()` `lineCount`. Derived; only the SwiftPersonaje discovery writer sets it; never hand-edited. Absent means "not counted yet" and round-trips unchanged; a 0.2.x CAST.md without it loads with no data change. **Merge replaces it:** unlike every other field (fill-if-nil, RQ-24), `merging(_:)` takes the incoming `lineCount` whenever it is non-nil, for new and existing members alike, so a rebuild refreshes it; a nil incoming value keeps the receiver's. No schema version bump (D-15). | User decision 2026-11-07; Personaje APP-UI UD21 |
+| RP-P18 | *Added 2026-11-07, release 0.3.0.* RQ-27: `castVersion: Int?` in CAST.md's front matter: the project repository's commit count when the Personaje app built the cast. Written only by the Personaje app; Reparto round-trips it. **The Personaje app is the only builder of CAST.md** (user decision 2026-11-07). | User decision 2026-11-07; Personaje APP-UI UD21 |
 
 ## Part 2: the discovery writer lives in SwiftPersonaje (decided 2026-10-21)
 
