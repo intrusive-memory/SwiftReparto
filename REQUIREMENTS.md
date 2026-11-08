@@ -2,7 +2,7 @@
 type: requirements
 state: draft
 created: 2026-09-25
-updated: 2026-10-19
+updated: 2026-11-07
 target_version: 0.2.0
 controlling_doc: ../SwiftSemblanzas/REQUIREMENTS.md (§5, "The character record")
 ---
@@ -27,12 +27,17 @@ This document covers what SwiftReparto, the only reader and writer of
 3. **Canonical character names**, defined here because this is the leaf
    package every consumer links (RQ-22).
 4. **`appearance` is deprecated** and will never be declared (RQ-25).
+5. **`lineCount`**: added 2026-11-07 for 0.3.0, the number of lines the
+   member speaks across the project's episodes, written only by discovery
+   and replaced on every merge (RQ-26).
 
 The completed 0.1.0 spec is `docs/complete/operation-troupe-marshal/REQUIREMENTS.md`.
 Everything in it still holds unless a requirement below says it's superseded.
 IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 
-**Status: implemented on `requirements/personaje` (0.2.0, not yet released).**
+**Status: RQ-19 to RQ-25 shipped in 0.2.0 (0.2.1 is the current release).
+RQ-26 and D-15 (added 2026-11-07) are specified, not implemented; they target
+0.3.0, the next minor.**
 
 ---
 
@@ -48,6 +53,9 @@ IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 | RQ-24 | Merge rules for `role` / `manifest` | Merge behavior |
 | RQ-25 | `appearance` deprecated | Supersedes RQ-5, closes RQ-Q2 |
 | D-14 | No schema version bump | Decision |
+| RQ-26 | *Added 2026-11-07, 0.3.0.* `lineCount: Int?`, replaced on merge | New declared field, merge behavior |
+| D-15 | *Added 2026-11-07.* No schema version bump for `lineCount` | Decision |
+| RQ-27 | *Added 2026-11-07, 0.3.0.* `castVersion: Int?` in the front matter | New declared front-matter field |
 
 ---
 
@@ -232,6 +240,81 @@ misinterpreted. **`CastSchemaVersion.current` stays `1`.**
 There is one cost. A 0.1.0 reader doesn't know `role` values, so it won't
 reject bad ones; it carries them as strings. That's acceptable.
 
+### RQ-26: `lineCount` (added 2026-11-07, target 0.3.0)
+
+Decided by the user on 2026-11-07 (Personaje APP-UI UD21: the episodes are
+the only source of the cast list).
+
+- Add `public var lineCount: Int?` to `CastMember`, plus the matching init
+  parameter (default `nil`). The wire key is exactly `lineCount`.
+- **Meaning.** The number of lines the character speaks across all of the
+  project's episodes (screenplays), as counted by the parse. The value is
+  SwiftCompartido's `extractAllCharacters()` `lineCount` for that character.
+- **Derived, never hand-edited.** The only writer is cast discovery:
+  SwiftPersonaje's discovery writer, run by the Personaje app's "Create
+  CAST.md" / "Rebuild Cast from Episodes". *Changed 2026-11-07:* the
+  Personaje app is the only builder of CAST.md; no other tool writes the cast
+  list (RQ-27). Reparto
+  doesn't compute it, check it against anything, or set it on any other path
+  (`reparto import`, `canonicalize`).
+- **Absent means "not counted yet"**: a `CAST.md` written before this field,
+  or a member a person added by hand. Absent is not `0`. Reparto never fills
+  in a value.
+- **Decoding** reads a YAML integer. A value that isn't a non-negative
+  integer fails the parse with a new
+  `CastParseError.invalidLineCount(index:value:)` that names the member and
+  the bad value, the same treatment `role` gets (RQ-19).
+- **Round-trip.** A member with `lineCount` re-encodes it unchanged; a member
+  without it encodes with no `lineCount` key, so a `CAST.md` written by
+  0.2.x loads and re-writes with no data change and passes the RQ-11 SHA-256
+  gate. The emission position is the implementation's choice, pinned by a
+  fixture, under the same rule as RQ-23 (withdrawn): the first 0.3.0 write
+  may move a `lineCount` that a newer writer put elsewhere.
+- **Merge rule: replace, not fill.** This is the one exception to the
+  fill-if-nil rule of RQ-24 and the existing fields. In
+  `backfilled(from:)`, when the incoming (discovered) member's `lineCount`
+  is non-nil, it **replaces** the receiver's value, whether the receiver's
+  was nil or not. When the incoming value is nil, the receiver's value is
+  kept. So every discovery run refreshes the count of each member it
+  discovers, new and existing alike, and a merge from a source that carries
+  no counts (`reparto import`, PROJECT.md) never erases one.
+- The merge doc comment (`:93`) and the `AGENTS.md` merge section ("The
+  receiver keeps every field it already has") name `lineCount` as the
+  exception.
+- **Migration from extras.** A document a newer writer produced before this
+  release may carry `lineCount:` as an extra. It decodes straight into the
+  typed field, because it is a declared key. No migration step is needed.
+
+### RQ-27: `castVersion` (added 2026-11-07, target 0.3.0)
+
+Decided by the user on 2026-11-07, for the Personaje app's process.
+
+- Add `castVersion: Int?` to `CastDocument`'s front matter, beside `type` and
+  `schemaVersion`. The wire key is exactly `castVersion`.
+- **Meaning.** The number of commits in the project's git repository
+  (`git rev-list --count HEAD`) when the cast was built: the commit the cast
+  list was read from. It is not a format version; `schemaVersion` still is.
+- **Who writes it.** Only the Personaje app, on "Create CAST.md" and "Rebuild
+  Cast from Episodes", which refuse to run unless the project folder is
+  pristine (no uncommitted or untracked changes). Reparto never computes it
+  and never changes it on any other path; a merge leaves it as it is.
+- **Absent** means the file wasn't built by the app (hand-written, or written
+  before 0.3.0). It round-trips unchanged; a 0.2.x file loads with no data
+  change. A value that isn't a non-negative integer fails the parse with
+  `CastParseError.invalidCastVersion(value:)`.
+- No schema version bump (D-12): it's an optional addition.
+
+### D-15: no schema version bump for `lineCount`
+
+D-12 applies as it did for D-14: `lineCount` is an optional addition. A 0.2.x
+reader sweeps it into `extraKeys` and writes it back unchanged, so nothing is
+misinterpreted. **`CastSchemaVersion.current` stays `1`.**
+
+There is one cost. A 0.2.x reader merges `extraKeys` per key, fill-if-absent,
+so a discovery run linked against 0.2.x would never refresh an existing count.
+Only the SwiftPersonaje discovery writer sets `lineCount`, and it requires
+0.3.0, so that combination doesn't happen.
+
 ---
 
 ## 3. Invariants
@@ -252,6 +335,7 @@ unchanged.
 | **SwiftEchada**, the only one wired today (29 files import Reparto; pinned `upToNextMajor(from: "0.1.0")`, so 0.2.0 resolves without a manifest change) | `.vox` output follows the `manifest` pointer, and file names use `canonicalName` (SwiftEchada `REQUIREMENTS.md` EC-23, EC-24). `verify cast` was removed in Echada 2.0.0, and nothing in Echada compares `role` / `manifest` as fields. |
 | **SwiftSemblanzas** (docs only) | Reads `manifest`, `role`, `canonicalName`. Never writes `appearance`. |
 | **Personaje** (docs only) | Writes `role` and `manifest` through `CastDocument`. |
+| **SwiftPersonaje** discovery writer (from 0.3.0) | The only writer of `lineCount` (RQ-26), through `merging(_:)`. |
 | **Produciesta** | No change. It ignores unknown fields today. |
 
 ---
@@ -274,6 +358,19 @@ unchanged.
    emits the deprecation warning.
 9. `reparto canonicalize` changes nothing without `--apply`, and refuses on
    a collision.
+10. *(RQ-26, 0.3.0)* A `CAST.md` with `lineCount:` decodes into the typed
+    field and re-encodes byte-identically. Pinned fixture.
+11. *(RQ-26)* Every 0.2.x fixture (no `lineCount`) loads with `lineCount`
+    nil and passes the RQ-11 SHA-256 gate unchanged.
+12. *(RQ-26)* `lineCount: -1` and `lineCount: many` fail with
+    `CastParseError.invalidLineCount`.
+13. *(RQ-26)* Merging a member with `lineCount: 40` into a receiver with
+    `lineCount: 12` gives `40`; into a receiver with none gives `40`. Merging
+    a member with no `lineCount` into a receiver with `12` keeps `12`. Every
+    other field stays fill-if-nil.
+14. *(RQ-27)* A front matter with `castVersion: 57` decodes to `57` and
+    re-encodes unchanged; one without it encodes with no `castVersion` key;
+    `castVersion: -1` fails with `invalidCastVersion`.
 
 ---
 
