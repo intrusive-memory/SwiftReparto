@@ -21,7 +21,7 @@ no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIRE
 
 ## Current version
 
-**Version string `0.3.0`** — the `v0.3.0` release, which adds the optional
+**Version string `0.3.0-dev`** — development after the `v0.3.0` release, which added the optional
 per-member `displayName` (RQ-28), on top of `v0.2.1` (`canonicalName` strips
 Fountain's `^`) and the `v0.2.0` character-record release (RQ-19..RQ-25; see [REQUIREMENTS.md](REQUIREMENTS.md)).
 
