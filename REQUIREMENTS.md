@@ -37,7 +37,8 @@ IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 
 **Status: RQ-19 to RQ-25 shipped in 0.2.0 (0.2.1 is the current release).
 RQ-26 and D-15 (added 2026-11-07) are specified, not implemented; they target
-0.3.0, the next minor.**
+0.3.0, the next minor. RQ-28 (added 2026-11-11) is specified and implemented
+on this branch, not yet released.**
 
 ---
 
@@ -56,6 +57,7 @@ RQ-26 and D-15 (added 2026-11-07) are specified, not implemented; they target
 | RQ-26 | *Added 2026-11-07, 0.3.0.* `lineCount: Int?`, replaced on merge | New declared field, merge behavior |
 | D-15 | *Added 2026-11-07.* No schema version bump for `lineCount` | Decision |
 | RQ-27 | *Added 2026-11-07, 0.3.0.* `castVersion: Int?` in the front matter | New declared front-matter field |
+| RQ-28 | *Added 2026-11-11.* `displayName: String?` | New declared field, merge behavior |
 
 ---
 
@@ -314,6 +316,21 @@ There is one cost. A 0.2.x reader merges `extraKeys` per key, fill-if-absent,
 so a discovery run linked against 0.2.x would never refresh an existing count.
 Only the SwiftPersonaje discovery writer sets `lineCount`, and it requires
 0.3.0, so that combination doesn't happen.
+
+### RQ-28: `displayName` (added 2026-11-11)
+
+- Add `public var displayName: String?` to `CastMember`, plus the matching
+  init parameter (default `nil`). The wire key is exactly `displayName`.
+- **Meaning.** An optional presentation name for UI. The canonical name stays
+  `character`; matching and file names never use `displayName`.
+- **Decoding** is exactly as written: no trimming, no casing, so `""` stays
+  `""`. Consumers treat an empty or whitespace-only value as absent.
+- **Encoding.** Emitted immediately after `manifest` and before the sorted
+  undeclared keys, and omitted when nil. A document that carried
+  `displayName` as an undeclared extra under 0.2.1 therefore re-emits
+  byte-identical.
+- **Merge rule: fill-if-nil.** The receiver wins, as with `role` (RQ-24).
+- **Who writes it.** Personaje, the only CAST.md builder, doesn't write it yet.
 
 ---
 

@@ -63,6 +63,7 @@ type: cast
 schemaVersion: 1
 cast:
   - character: NARRATOR
+    displayName: The Narrator
     role: narrator
     voicePrompt: "Deep authoritative British baritone. Measured pacing."
     voices:
@@ -75,6 +76,10 @@ cast:
 `background`). `manifest` points at the character's dossier, where visual assets live — `CAST.md`
 carries no `appearance` (deprecated in 0.2.0; an existing block is preserved, and `reparto validate`
 warns about it). `voices` is written by SwiftEchada. No consumer writes the file itself.
+
+`displayName` is an optional presentation name for UI; the canonical name stays `character`.
+Consumers treat an empty or whitespace-only value as absent. Personaje, the only `CAST.md` builder,
+doesn't write it yet.
 
 Character names are the screenplay cue, uppercase: `CastMember.canonicalName("narrator (V.O.)")`
 is `"NARRATOR"`, and `merging(_:)` matches on that form.
