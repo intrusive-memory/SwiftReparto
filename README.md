@@ -94,10 +94,10 @@ formula is created by hand in the tap now that a stable release exists (see
 ### The library, via Swift Package Manager
 
 ```swift
-.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", from: "0.2.1")
+.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", from: "0.3.0")
 ```
 
-(The git tag is `v0.2.1`. SwiftPM takes the unprefixed semver and resolves
+(The git tag is `v0.3.0`. SwiftPM takes the unprefixed semver and resolves
 the `v`-prefixed tag itself.)
 
 Then depend on the `SwiftReparto` product in the target that reads or writes

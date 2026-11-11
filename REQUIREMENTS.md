@@ -37,8 +37,8 @@ The completed 0.1.0 spec is `docs/complete/operation-troupe-marshal/REQUIREMENTS
 Everything in it still holds unless a requirement below says it's superseded.
 IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 
-**Status: RQ-19 to RQ-25 shipped in 0.2.0 (0.2.1 is the current release).
-RQ-28 (added 2026-11-11) ships in 0.3.0. RQ-26, RQ-27 and D-15 (added
+**Status: RQ-19 to RQ-25 shipped in 0.2.0. RQ-28 (added 2026-11-11) shipped
+in 0.3.0, the current release. RQ-26, RQ-27 and D-15 (added
 2026-11-07) are specified, not implemented; they target the minor after 0.3.0.**
 
 ---
