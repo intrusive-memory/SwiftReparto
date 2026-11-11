@@ -150,6 +150,16 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   /// dossier is the dossier validator's concern.
   public var manifest: String?
 
+  /// The name to show for this character where a presentation name differs
+  /// from the canonical ``character`` key (RP-1).
+  ///
+  /// Decoded exactly as written: no trimming, no casing, and an empty string
+  /// stays empty (RP-3). Encoded immediately after ``manifest`` and before the
+  /// sorted ``extraKeys``, and omitted when `nil` (RP-2), so a document that
+  /// carried `displayName:` as an undeclared extra in 0.2.1 re-emits
+  /// byte-identically. Opaque to this library.
+  public var displayName: String?
+
   /// Every per-member key the schema does not declare, preserved verbatim.
   ///
   /// `bio:` is the live case — it exists in production data, nothing in the
@@ -177,11 +187,13 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     voicePrompt: String? = nil,
     voices: [String: [String]] = [:],
     manifest: String? = nil,
+    displayName: String? = nil,
     extraKeys: [String: AnyCodable] = [:]
   ) {
     self.character = character
     self.role = role
     self.manifest = manifest
+    self.displayName = displayName
     self.actor = actor
     self.gender = gender
     self.language = language
@@ -300,6 +312,7 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     case legacyVoiceDescription = "voiceDescription"
     case voices
     case manifest
+    case displayName
   }
 
   /// Dynamic key used to enumerate and re-emit keys the schema does not
@@ -382,6 +395,7 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     voices = decodedVoices
 
     manifest = try container.decodeIfPresent(String.self, forKey: .manifest)
+    displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
 
     // Capture every key the schema does not declare so user-maintained content
     // (a `bio:` note, a legacy `appearance:` block) is preserved rather than
@@ -453,6 +467,7 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     }
 
     try container.encodeIfPresent(manifest, forKey: .manifest)
+    try container.encodeIfPresent(displayName, forKey: .displayName)
 
     // Re-emit preserved undeclared keys so round-trips are lossless (RQ-4).
     // Sorted, because dictionary iteration order is not stable across runs and
