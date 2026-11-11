@@ -27,17 +27,19 @@ This document covers what SwiftReparto, the only reader and writer of
 3. **Canonical character names**, defined here because this is the leaf
    package every consumer links (RQ-22).
 4. **`appearance` is deprecated** and will never be declared (RQ-25).
-5. **`lineCount`**: added 2026-11-07 for 0.3.0, the number of lines the
+5. **`lineCount`**: added 2026-11-07 for the minor after 0.3.0, the number of lines the
    member speaks across the project's episodes, written only by discovery
    and replaced on every merge (RQ-26).
+6. **`displayName`**: added 2026-11-11 for 0.3.0, an optional presentation
+   name for UI; the canonical name stays `character` (RQ-28).
 
 The completed 0.1.0 spec is `docs/complete/operation-troupe-marshal/REQUIREMENTS.md`.
 Everything in it still holds unless a requirement below says it's superseded.
 IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 
 **Status: RQ-19 to RQ-25 shipped in 0.2.0 (0.2.1 is the current release).
-RQ-26 and D-15 (added 2026-11-07) are specified, not implemented; they target
-0.3.0, the next minor.**
+RQ-28 (added 2026-11-11) ships in 0.3.0. RQ-26, RQ-27 and D-15 (added
+2026-11-07) are specified, not implemented; they target the minor after 0.3.0.**
 
 ---
 
@@ -53,9 +55,10 @@ RQ-26 and D-15 (added 2026-11-07) are specified, not implemented; they target
 | RQ-24 | Merge rules for `role` / `manifest` | Merge behavior |
 | RQ-25 | `appearance` deprecated | Supersedes RQ-5, closes RQ-Q2 |
 | D-14 | No schema version bump | Decision |
-| RQ-26 | *Added 2026-11-07, 0.3.0.* `lineCount: Int?`, replaced on merge | New declared field, merge behavior |
+| RQ-26 | *Added 2026-11-07, after 0.3.0.* `lineCount: Int?`, replaced on merge | New declared field, merge behavior |
 | D-15 | *Added 2026-11-07.* No schema version bump for `lineCount` | Decision |
-| RQ-27 | *Added 2026-11-07, 0.3.0.* `castVersion: Int?` in the front matter | New declared front-matter field |
+| RQ-27 | *Added 2026-11-07, after 0.3.0.* `castVersion: Int?` in the front matter | New declared front-matter field |
+| RQ-28 | *Added 2026-11-11, 0.3.0.* `displayName: String?` | New declared field, merge behavior |
 
 ---
 
@@ -240,7 +243,7 @@ misinterpreted. **`CastSchemaVersion.current` stays `1`.**
 There is one cost. A 0.1.0 reader doesn't know `role` values, so it won't
 reject bad ones; it carries them as strings. That's acceptable.
 
-### RQ-26: `lineCount` (added 2026-11-07, target 0.3.0)
+### RQ-26: `lineCount` (added 2026-11-07, target the minor after 0.3.0)
 
 Decided by the user on 2026-11-07 (Personaje APP-UI UD21: the episodes are
 the only source of the cast list).
@@ -268,8 +271,8 @@ the only source of the cast list).
   without it encodes with no `lineCount` key, so a `CAST.md` written by
   0.2.x loads and re-writes with no data change and passes the RQ-11 SHA-256
   gate. The emission position is the implementation's choice, pinned by a
-  fixture, under the same rule as RQ-23 (withdrawn): the first 0.3.0 write
-  may move a `lineCount` that a newer writer put elsewhere.
+  fixture, under the same rule as RQ-23 (withdrawn): the first write by the
+  release that implements RQ-26 may move a `lineCount` that a newer writer put elsewhere.
 - **Merge rule: replace, not fill.** This is the one exception to the
   fill-if-nil rule of RQ-24 and the existing fields. In
   `backfilled(from:)`, when the incoming (discovered) member's `lineCount`
@@ -285,7 +288,7 @@ the only source of the cast list).
   release may carry `lineCount:` as an extra. It decodes straight into the
   typed field, because it is a declared key. No migration step is needed.
 
-### RQ-27: `castVersion` (added 2026-11-07, target 0.3.0)
+### RQ-27: `castVersion` (added 2026-11-07, target the minor after 0.3.0)
 
 Decided by the user on 2026-11-07, for the Personaje app's process.
 
@@ -299,7 +302,7 @@ Decided by the user on 2026-11-07, for the Personaje app's process.
   pristine (no uncommitted or untracked changes). Reparto never computes it
   and never changes it on any other path; a merge leaves it as it is.
 - **Absent** means the file wasn't built by the app (hand-written, or written
-  before 0.3.0). It round-trips unchanged; a 0.2.x file loads with no data
+  before RQ-27 shipped). It round-trips unchanged; a 0.2.x file loads with no data
   change. A value that isn't a non-negative integer fails the parse with
   `CastParseError.invalidCastVersion(value:)`.
 - No schema version bump (D-12): it's an optional addition.
@@ -313,7 +316,22 @@ misinterpreted. **`CastSchemaVersion.current` stays `1`.**
 There is one cost. A 0.2.x reader merges `extraKeys` per key, fill-if-absent,
 so a discovery run linked against 0.2.x would never refresh an existing count.
 Only the SwiftPersonaje discovery writer sets `lineCount`, and it requires
-0.3.0, so that combination doesn't happen.
+the release that implements RQ-26, so that combination doesn't happen.
+
+### RQ-28: `displayName` (added 2026-11-11)
+
+- Add `public var displayName: String?` to `CastMember`, plus the matching
+  init parameter (default `nil`). The wire key is exactly `displayName`.
+- **Meaning.** An optional presentation name for UI. The canonical name stays
+  `character`; matching and file names never use `displayName`.
+- **Decoding** is exactly as written: no trimming, no casing, so `""` stays
+  `""`. Consumers treat an empty or whitespace-only value as absent.
+- **Encoding.** Emitted immediately after `manifest` and before the sorted
+  undeclared keys, and omitted when nil. A document that carried
+  `displayName` as an undeclared extra under 0.2.1 therefore re-emits
+  byte-identical.
+- **Merge rule: fill-if-nil.** The receiver wins, as with `role` (RQ-24).
+- **Who writes it.** Personaje, the only CAST.md builder, doesn't write it yet.
 
 ---
 
@@ -335,7 +353,7 @@ unchanged.
 | **SwiftEchada**, the only one wired today (29 files import Reparto; pinned `upToNextMajor(from: "0.1.0")`, so 0.2.0 resolves without a manifest change) | `.vox` output follows the `manifest` pointer, and file names use `canonicalName` (SwiftEchada `REQUIREMENTS.md` EC-23, EC-24). `verify cast` was removed in Echada 2.0.0, and nothing in Echada compares `role` / `manifest` as fields. |
 | **SwiftSemblanzas** (docs only) | Reads `manifest`, `role`, `canonicalName`. Never writes `appearance`. |
 | **Personaje** (docs only) | Writes `role` and `manifest` through `CastDocument`. |
-| **SwiftPersonaje** discovery writer (from 0.3.0) | The only writer of `lineCount` (RQ-26), through `merging(_:)`. |
+| **SwiftPersonaje** discovery writer (from the release that implements RQ-26) | The only writer of `lineCount` (RQ-26), through `merging(_:)`. |
 | **Produciesta** | No change. It ignores unknown fields today. |
 
 ---
@@ -358,7 +376,7 @@ unchanged.
    emits the deprecation warning.
 9. `reparto canonicalize` changes nothing without `--apply`, and refuses on
    a collision.
-10. *(RQ-26, 0.3.0)* A `CAST.md` with `lineCount:` decodes into the typed
+10. *(RQ-26)* A `CAST.md` with `lineCount:` decodes into the typed
     field and re-encodes byte-identically. Pinned fixture.
 11. *(RQ-26)* Every 0.2.x fixture (no `lineCount`) loads with `lineCount`
     nil and passes the RQ-11 SHA-256 gate unchanged.

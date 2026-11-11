@@ -179,6 +179,9 @@ extension CastMember {
     if merged.manifest == nil {
       merged.manifest = discovered.manifest
     }
+    if merged.displayName == nil {
+      merged.displayName = discovered.displayName
+    }
     if merged.actor == nil {
       merged.actor = discovered.actor
     }
