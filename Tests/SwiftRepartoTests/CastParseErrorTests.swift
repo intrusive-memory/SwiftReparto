@@ -31,6 +31,8 @@ final class CastParseErrorTests: XCTestCase {
     .missingCastKey,
     .missingCharacter(index: 0),
     .invalidRole(index: 0, value: "star"),
+    .invalidLineCount(index: 0, value: "many"),
+    .invalidCastVersion(value: "-1"),
     .unsupportedSchemaVersion(found: 2, supported: 1),
   ]
 
@@ -43,11 +45,12 @@ final class CastParseErrorTests: XCTestCase {
     for error in Self.allCases {
       switch error {
       case .noFrontMatter, .invalidYAML, .missingTypeCast, .missingCastKey,
-        .missingCharacter, .invalidRole, .unsupportedSchemaVersion:
+        .missingCharacter, .invalidRole, .invalidLineCount, .invalidCastVersion,
+        .unsupportedSchemaVersion:
         continue
       }
     }
-    XCTAssertEqual(Self.allCases.count, 7)
+    XCTAssertEqual(Self.allCases.count, 9)
   }
 
   // MARK: - Distinguishability by `==`
@@ -133,6 +136,13 @@ final class CastParseErrorTests: XCTestCase {
     XCTAssertTrue(role.contains("5"))
     XCTAssertTrue(role.contains("star"))
     XCTAssertTrue(role.contains("underfive"), "lists the allowed roles")
+
+    let lineCount = CastParseError.invalidLineCount(index: 6, value: "many").errorDescription ?? ""
+    XCTAssertTrue(lineCount.contains("6"))
+    XCTAssertTrue(lineCount.contains("many"))
+
+    let castVersion = CastParseError.invalidCastVersion(value: "-3").errorDescription ?? ""
+    XCTAssertTrue(castVersion.contains("-3"))
 
     let version =
       CastParseError.unsupportedSchemaVersion(found: 4, supported: 1).errorDescription ?? ""

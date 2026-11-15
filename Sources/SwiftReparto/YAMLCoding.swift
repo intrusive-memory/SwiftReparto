@@ -159,10 +159,11 @@ func encodeYAML<Value: Encodable>(_ value: Value) throws -> String {
 // hypothetical for a cast list. A `code: 0755` is destroyed the same way, and
 // worse: it comes back as `493`.
 //
-// Note that *declared* fields are almost entirely insulated from this: every
-// `CastMember` field is `String?`, so nothing on that path ever asks Yams for a
-// `Bool` or an `Int`. The one exception is `CastDocument.schemaVersion`, which
-// is declared `Int` — see the rule below for what that costs.
+// Note that *declared* fields are almost entirely insulated from this: nearly
+// every `CastMember` field is `String?`, so nothing on that path asks Yams for a
+// `Bool` or an `Int`. The exceptions are the `Int` fields:
+// `CastDocument.schemaVersion`, `CastDocument.castVersion` (RQ-27) and
+// `CastMember.lineCount` (RQ-26) — see the rule below for what that costs.
 //
 // ## THE RULE: a plain scalar becomes a number only when that is provably
 // ## lossless in spelling
@@ -279,7 +280,9 @@ func encodeYAML<Value: Encodable>(_ value: Value) throws -> String {
 // One cost, stated plainly: `CastDocument.schemaVersion` is declared `Int`, so
 // `schemaVersion: 01` — which YAML 1.1 read as 1 — is now a `String` and fails
 // to decode as an `Int`. `schemaVersion: 1` is unaffected. Refusing a padded
-// version number is the correct trade for never silently rewriting one.
+// version number is the correct trade for never silently rewriting one. The
+// same holds for `castVersion: 057` and `lineCount: 012`, which fail with
+// `invalidCastVersion` and `invalidLineCount`.
 
 /// The complete YAML 1.2 core-schema boolean set — six spellings, exact case.
 ///

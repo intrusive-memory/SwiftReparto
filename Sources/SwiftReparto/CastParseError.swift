@@ -121,6 +121,20 @@ public enum CastParseError: Error, LocalizedError, Equatable {
   ///   - value: The unrecognized value, exactly as written.
   case invalidRole(index: Int, value: String)
 
+  /// A member of the `cast:` array carried a `lineCount:` that is not a
+  /// non-negative YAML integer (RQ-26).
+  ///
+  /// - Parameters:
+  ///   - index: The member's zero-based position in the `cast:` array.
+  ///   - value: The bad value, as written where it is a scalar.
+  case invalidLineCount(index: Int, value: String)
+
+  /// The front matter carried a `castVersion:` that is not a non-negative
+  /// YAML integer (RQ-27).
+  ///
+  /// - Parameter value: The bad value, as written where it is a scalar.
+  case invalidCastVersion(value: String)
+
   /// The document declared a schema version newer than this build supports
   /// (D-12).
   ///
@@ -164,6 +178,14 @@ public enum CastParseError: Error, LocalizedError, Equatable {
       return
         "The cast member at index \(index) has role '\(value)', which is not a known role. "
         + "Expected one of: \(allowed)."
+
+    case .invalidLineCount(let index, let value):
+      return
+        "The cast member at index \(index) has lineCount '\(value)', "
+        + "which is not a non-negative integer."
+
+    case .invalidCastVersion(let value):
+      return "The front matter has castVersion '\(value)', which is not a non-negative integer."
 
     case .unsupportedSchemaVersion(let found, let supported):
       return

@@ -65,6 +65,15 @@ enum TestFixture: String {
   /// is a bare ElevenLabs voice id. Synthetic data.
   case elevenLabsVoicesCastMD = "elevenlabs-voices-CAST.md"
 
+  /// RQ-26 / RQ-27 acceptance 10 and 14: `castVersion: 57` in the front
+  /// matter and `lineCount` on members, in emitted form. Pins the emission
+  /// position of both keys. Synthetic data.
+  case lineCountCastVersionCastMD = "linecount-castversion-CAST.md"
+
+  /// RQ-26: the second member carries `lineCount: -1`.
+  /// Expects ``CastParseError/invalidLineCount(index:value:)`` with index 1.
+  case rejectInvalidLineCount = "reject-invalid-linecount.md"
+
   /// Sortie 15: `type: cast` present, `cast:` entirely absent.
   /// Expects ``CastParseError/missingCastKey``.
   case rejectTypeOnly = "reject-type-only.md"
