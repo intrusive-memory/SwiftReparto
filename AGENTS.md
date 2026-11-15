@@ -21,7 +21,7 @@ no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIRE
 
 ## Current version
 
-**Version string `0.4.0`** — the `v0.4.0` release, which added the optional
+**Version string `0.4.0-dev`** — development after the `v0.4.0` release, which added the optional
 per-member `lineCount` (RQ-26) and the front-matter `castVersion` (RQ-27), with
 two new `CastParseError` cases (`invalidLineCount`, `invalidCastVersion`). It
 follows `v0.3.0` (optional per-member `displayName`, RQ-28) and `v0.2.1` (`canonicalName` strips
