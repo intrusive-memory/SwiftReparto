@@ -10,10 +10,12 @@ All notable changes to SwiftReparto are recorded here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [Semantic Versioning](https://semver.org/) once a stable line exists.
 
-## [Unreleased]
+## [0.4.0] — 2026-11-15
 
-Additive: `CastSchemaVersion.current` stays `1` (D-15), and a document
-without the new keys parses and regenerates byte-for-byte.
+`CastSchemaVersion.current` stays `1` (D-15), and a document without the new
+keys parses and regenerates byte-for-byte. **Source-breaking for exhaustive
+`switch`es over `CastParseError`:** the two new cases below need handling (or
+a `default:`) in consumer code, which is why this is a minor bump at 0.x.
 
 ### Added
 
