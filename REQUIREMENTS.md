@@ -2,7 +2,7 @@
 type: requirements
 state: draft
 created: 2026-09-25
-updated: 2026-11-07
+updated: 2026-11-15
 target_version: 0.2.0
 controlling_doc: ../SwiftSemblanzas/REQUIREMENTS.md (§5, "The character record")
 ---
@@ -39,7 +39,8 @@ IDs continue from that document: RQ-19+, RQ-INV-4+, RQ-Q4+, D-14+.
 
 **Status: RQ-19 to RQ-25 shipped in 0.2.0. RQ-28 (added 2026-11-11) shipped
 in 0.3.0, the current release. RQ-26, RQ-27 and D-15 (added
-2026-11-07) are specified, not implemented; they target the minor after 0.3.0.**
+2026-11-07) are implemented on `development`, unreleased; they ship in the
+minor after 0.3.0.**
 
 ---
 

@@ -160,6 +160,27 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
   /// byte-identically. Opaque to this library.
   public var displayName: String?
 
+  /// The number of lines the character speaks across all of the project's
+  /// episodes (RQ-26).
+  ///
+  /// **Derived, never hand-edited.** The value is SwiftCompartido's
+  /// `extractAllCharacters()` `lineCount` for this character, written only by
+  /// the SwiftPersonaje discovery writer. Reparto never computes it, checks it,
+  /// or sets it on any path of its own (`reparto import`, `canonicalize`).
+  ///
+  /// `nil` means "not counted yet" (a file written before this field existed,
+  /// or a member a person added by hand), which is not the same as `0`.
+  ///
+  /// Decoding accepts a YAML integer that is zero or more; anything else fails
+  /// the parse with ``CastParseError/invalidLineCount(index:value:)``. Encoded
+  /// immediately after ``displayName`` and before the sorted ``extraKeys``, and
+  /// omitted when `nil`, so a member without it encodes exactly as before.
+  ///
+  /// The one field `merging(_:)` **replaces** rather than
+  /// gap-fills: a non-`nil` incoming value wins, so each discovery run
+  /// refreshes the count; a `nil` incoming value keeps the receiver's.
+  public var lineCount: Int?
+
   /// Every per-member key the schema does not declare, preserved verbatim.
   ///
   /// `bio:` is the live case — it exists in production data, nothing in the
@@ -188,12 +209,14 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     voices: [String: [String]] = [:],
     manifest: String? = nil,
     displayName: String? = nil,
+    lineCount: Int? = nil,
     extraKeys: [String: AnyCodable] = [:]
   ) {
     self.character = character
     self.role = role
     self.manifest = manifest
     self.displayName = displayName
+    self.lineCount = lineCount
     self.actor = actor
     self.gender = gender
     self.language = language
@@ -313,6 +336,7 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     case voices
     case manifest
     case displayName
+    case lineCount
   }
 
   /// Dynamic key used to enumerate and re-emit keys the schema does not
@@ -397,6 +421,22 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
     manifest = try container.decodeIfPresent(String.self, forKey: .manifest)
     displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
 
+    // RQ-26: strict, like `role`. A value that is not a non-negative integer
+    // fails the decode, and `CastDocument` reports it as
+    // `CastParseError.invalidLineCount`.
+    switch try decodeNonNegativeInteger(from: container, forKey: .lineCount) {
+    case .absent:
+      lineCount = nil
+    case .value(let count):
+      lineCount = count
+    case .invalid(let rawValue):
+      throw DecodingError.dataCorrupted(
+        DecodingError.Context(
+          codingPath: container.codingPath + [CodingKeys.lineCount],
+          debugDescription: "lineCount '\(rawValue)' is not a non-negative integer.",
+          underlyingError: InvalidLineCountValue(value: rawValue)))
+    }
+
     // Capture every key the schema does not declare so user-maintained content
     // (a `bio:` note, a legacy `appearance:` block) is preserved rather than
     // destroyed on the next write-back (RQ-4, RQ-25).
@@ -468,6 +508,7 @@ public struct CastMember: Codable, Sendable, Equatable, Hashable, Identifiable {
 
     try container.encodeIfPresent(manifest, forKey: .manifest)
     try container.encodeIfPresent(displayName, forKey: .displayName)
+    try container.encodeIfPresent(lineCount, forKey: .lineCount)
 
     // Re-emit preserved undeclared keys so round-trips are lossless (RQ-4).
     // Sorted, because dictionary iteration order is not stable across runs and
@@ -495,12 +536,59 @@ struct InvalidRoleValue: Error, Equatable {
   let value: String
 }
 
+/// The bad value carried by a `lineCount:` that is not a non-negative integer
+/// (RQ-26), attached the same way as ``InvalidRoleValue``.
+struct InvalidLineCountValue: Error, Equatable {
+  let value: String
+}
+
+/// The outcome of reading an optional non-negative integer key.
+enum NonNegativeIntegerField: Equatable {
+  /// The key is absent or `null`.
+  case absent
+  /// The key holds an integer that is zero or more.
+  case value(Int)
+  /// The key holds something else, described as written where possible.
+  case invalid(String)
+}
+
+/// Reads an optional key that must hold a non-negative integer, without
+/// throwing for a value of the wrong shape.
+///
+/// Shared by `CastMember.lineCount` (RQ-26) and `CastDocument.castVersion`
+/// (RQ-27), so both refuse the same values and report them the same way. A
+/// quoted `'12'` is a string, not an integer, and is invalid; so is `012`,
+/// which the YAML read dialect keeps as a string (see `YAMLCoding.swift`).
+///
+/// - Returns: ``NonNegativeIntegerField/invalid(_:)`` carrying the value as
+///   written for a scalar, or a short description for a mapping or sequence.
+func decodeNonNegativeInteger<Key: CodingKey>(
+  from container: KeyedDecodingContainer<Key>, forKey key: Key
+) throws -> NonNegativeIntegerField {
+  guard container.contains(key), try !container.decodeNil(forKey: key) else {
+    return .absent
+  }
+  if let integer = try? container.decode(Int.self, forKey: key) {
+    return integer >= 0 ? .value(integer) : .invalid(String(integer))
+  }
+  if let string = try? container.decode(String.self, forKey: key) {
+    return .invalid(string)
+  }
+  if let double = try? container.decode(Double.self, forKey: key) {
+    return .invalid(String(double))
+  }
+  if let bool = try? container.decode(Bool.self, forKey: key) {
+    return .invalid(String(bool))
+  }
+  return .invalid("(not a scalar)")
+}
+
 /// Translates a member's `DecodingError` into the typed ``CastParseError`` that
 /// names it, where one exists.
 ///
 /// Shared by `CastDocument` and `ProjectCastImporter` so both decode paths
-/// report the same failures the same way. Only two failures are translated —
-/// a missing `character` and an unknown `role` — and every other
+/// report the same failures the same way. Only three failures are translated —
+/// a missing `character`, an unknown `role`, and an invalid `lineCount` — and every other
 /// `DecodingError` is returned unchanged, because flattening them would report
 /// the wrong cause for a type mismatch three levels down.
 func translateMemberDecodingError(_ error: DecodingError, atMemberIndex index: Int) -> Error {
@@ -512,6 +600,9 @@ func translateMemberDecodingError(_ error: DecodingError, atMemberIndex index: I
   case .dataCorrupted(let context):
     if let invalid = context.underlyingError as? InvalidRoleValue {
       return CastParseError.invalidRole(index: index, value: invalid.value)
+    }
+    if let invalid = context.underlyingError as? InvalidLineCountValue {
+      return CastParseError.invalidLineCount(index: index, value: invalid.value)
     }
     return error
 

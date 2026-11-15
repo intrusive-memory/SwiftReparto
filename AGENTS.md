@@ -1,7 +1,7 @@
 ---
 type: doc
 title: SwiftReparto — Agent Instructions
-updated: 2026-10-22
+updated: 2026-11-15
 ---
 
 # AGENTS.md
@@ -21,8 +21,10 @@ no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIRE
 
 ## Current version
 
-**Version string `0.3.0`** — the `v0.3.0` release, which adds the optional
-per-member `displayName` (RQ-28), on top of `v0.2.1` (`canonicalName` strips
+**Version string `0.4.0`** — the `v0.4.0` release, which added the optional
+per-member `lineCount` (RQ-26) and the front-matter `castVersion` (RQ-27), with
+two new `CastParseError` cases (`invalidLineCount`, `invalidCastVersion`). It
+follows `v0.3.0` (optional per-member `displayName`, RQ-28) and `v0.2.1` (`canonicalName` strips
 Fountain's `^`) and the `v0.2.0` character-record release (RQ-19..RQ-25; see [REQUIREMENTS.md](REQUIREMENTS.md)).
 
 The two spellings are deliberate and both are load-bearing:
@@ -31,9 +33,9 @@ The two spellings are deliberate and both are load-bearing:
   (SwiftEscribo `v0.1.0`…`v0.3.0`, SwiftProyecto `v4.8.1`). Use it for
   `gh release download` and anything else that names a git ref.
 - **`Sources/RepartoCLICore/RepartoVersion.swift`'s `RepartoVersion.current`
-  does not** — it is `"0.3.0"`. `release.yml` derives the tarball name
+  does not** — it is `"0.4.0"`. `release.yml` derives the tarball name
   from `VERSION="${TAG#v}"`, so the constant, `reparto --version`, and
-  `reparto-0.3.0-arm64-macos.tar.gz` all agree character-for-character,
+  `reparto-0.4.0-arm64-macos.tar.gz` all agree character-for-character,
   and SwiftPM's `exact:` requirement takes that same unprefixed string.
 
 The constant and this section must always name the same release —
@@ -121,8 +123,8 @@ action).
   it and drop whatever it didn't understand — RQ-INV-2's exact failure with
   a version number attached. A caller that wants best-effort behavior can
   catch the typed error and decide for itself.
-- **Emission order is fixed, not sorted**: `type`, `schemaVersion`, `cast`,
-  in that order, at the `encode(to:)` layer — this is what lets the YAML
+- **Emission order is fixed, not sorted**: `type`, `schemaVersion`,
+  `castVersion` (only when set, RQ-27), `cast`, in that order, at the `encode(to:)` layer — this is what lets the YAML
   layer run with `sortKeys = false` (required for other reasons below) and
   still produce a stable key position for the SHA-256 round-trip gate.
 
@@ -144,6 +146,25 @@ action).
 - **Migration from extras**: a 0.1.0-written file with `role:` / `manifest:`
   as extras loads straight into the typed fields. The first 0.2.0 write may
   move those keys (normalizing write); data never changes.
+
+### `lineCount` and `castVersion` (unreleased, RQ-26 / RQ-27)
+
+- **`CastMember.lineCount: Int?`** — lines the character speaks across all
+  the project's episodes. Derived: only the SwiftPersonaje discovery writer
+  sets it; Reparto never computes or fills it. Absent means "not counted
+  yet", not `0`. Emitted right after `displayName`, before the sorted extras.
+- **`CastDocument.castVersion: Int?`** — front-matter key: the project repo's
+  commit count when the Personaje app built the cast. Not a format version.
+  Reparto reads and writes it back as found; merging members never touches it.
+  Emitted right after `schemaVersion`, before `cast`.
+- **Strict decoding.** Each must be a non-negative YAML integer: a bad value
+  throws `CastParseError.invalidLineCount(index:value:)` or
+  `CastParseError.invalidCastVersion(value:)`. A quoted `'12'` or a padded
+  `012` is a string under the read dialect below, so it's refused too. `null`
+  reads as absent.
+- Both are written only when non-nil, so documents without them encode
+  byte-identically and `schemaVersion` stays `1` (D-15). Pinned by the
+  `linecount-castversion-CAST.md` fixture.
 
 ### Canonical character names (0.2.0, RQ-22)
 
@@ -195,7 +216,7 @@ another repo:
 |---|---|---|
 | **SwiftEchada** | Full roster; `manifest`, `canonicalName` (EC-23, EC-24) | `voices.voxalta` |
 | **SwiftSemblanzas** | `character`, `role`, `manifest`, `canonicalName`, `bio` (via `extraKeys`) | — (never `appearance`, RQ-25) |
-| **SwiftPersonaje / SwiftDossier** | Full roster | Members via `merging(_:)` (`character`); `role`, `manifest`; `voicePrompt`, `voices.voxalta` — see REQUIREMENTS-personaje.md "Who writes CAST.md" |
+| **SwiftPersonaje / SwiftDossier** | Full roster | Members via `merging(_:)` (`character`, `lineCount`); `castVersion` (Personaje app); `role`, `manifest`; `voicePrompt`, `voices.voxalta` — see REQUIREMENTS-personaje.md "Who writes CAST.md" |
 | **Produciesta** | Full roster | Voice assignments |
 | **SwiftProyecto** | — | — (**not a consumer** — declares no dependency, retains no cast surface) |
 
@@ -248,7 +269,7 @@ a voice recorded" indistinguishable from "a human deliberately cleared this
 roster entry." Emitting the empty mapping keeps that fact visible in the
 file. (Sortie 10.)
 
-## `merging(_:)` gap-fills; it does not overwrite
+## `merging(_:)` gap-fills; it does not overwrite (except `lineCount`)
 
 `[CastMember].merging(_:)` (RQ-14) matches on the **canonical name**
 (RQ-22): `NARRATOR (V.O.)`, `narrator` and `NARRATOR` are one member. A name
@@ -264,6 +285,10 @@ whitespace-insensitive key. On a match:
   for scalars, **per-provider** for `voices` (only a provider key absent
   from the receiver counts as a gap; a shared provider is left exactly as
   the receiver had it), and per-key for `extraKeys`.
+- **The one exception is `lineCount` (RQ-26):** it is derived, so a non-nil
+  `discovered.lineCount` **replaces** the receiver's value, set or not. A nil
+  incoming value keeps the receiver's, so a merge from a source with no
+  counts (`reparto import`, `PROJECT.md`) never erases one.
 
 A `discovered` member with no match is appended, in `discovered` order,
 after every receiver member. `result.count >= self.count` always — merge

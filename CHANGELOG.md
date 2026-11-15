@@ -1,7 +1,7 @@
 ---
 type: changelog
 title: SwiftReparto — Changelog
-updated: 2026-10-31
+updated: 2026-11-15
 ---
 
 # Changelog
@@ -9,6 +9,38 @@ updated: 2026-10-31
 All notable changes to SwiftReparto are recorded here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/); versioning is
 [Semantic Versioning](https://semver.org/) once a stable line exists.
+
+## [0.4.0] — 2026-11-15
+
+`CastSchemaVersion.current` stays `1` (D-15), and a document without the new
+keys parses and regenerates byte-for-byte. **Source-breaking for exhaustive
+`switch`es over `CastParseError`:** the two new cases below need handling (or
+a `default:`) in consumer code, which is why this is a minor bump at 0.x.
+
+### Added
+
+- **`CastMember.lineCount: Int?`** (RQ-26) — lines the character speaks across
+  the project's episodes, written by the SwiftPersonaje discovery writer.
+  Emitted after `displayName`. A value that isn't a non-negative integer throws
+  the new **`CastParseError.invalidLineCount(index:value:)`**, on both the
+  parse and import paths.
+- **`CastDocument.castVersion: Int?`** (RQ-27) — the project repository's
+  commit count when the cast was built, in the front matter after
+  `schemaVersion`. A bad value throws the new
+  **`CastParseError.invalidCastVersion(value:)`**.
+
+### Changed
+
+- **`merging(_:)` replaces `lineCount`** when the incoming member has one,
+  instead of filling only a nil value. A nil incoming value keeps the
+  receiver's. Every other field is still fill-if-nil.
+
+## [0.3.0] — 2026-11-11
+
+### Added
+
+- **`CastMember.displayName: String?`** (RQ-28) — an optional presentation
+  name, emitted after `manifest`. Fill-if-nil on merge.
 
 ## [0.2.1] — 2026-10-31
 

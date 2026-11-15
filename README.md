@@ -1,6 +1,6 @@
 ---
 type: doc
-updated: 2026-10-22
+updated: 2026-11-15
 status: stable
 ---
 
@@ -61,6 +61,7 @@ whole point.
 ---
 type: cast
 schemaVersion: 1
+castVersion: 57
 cast:
   - character: NARRATOR
     displayName: The Narrator
@@ -69,6 +70,7 @@ cast:
     voices:
       voxalta: [voices/NARRATOR.vox]
     manifest: characters/NARRATOR.dossier/manifest.json
+    lineCount: 40
 ---
 ```
 
@@ -81,23 +83,29 @@ warns about it). `voices` is written by SwiftEchada. No consumer writes the file
 Consumers treat an empty or whitespace-only value as absent. Personaje, the only `CAST.md` builder,
 doesn't write it yet.
 
+`lineCount` is the number of lines the character speaks across the episodes, and `castVersion` is
+the project repository's commit count when the cast was built. Both are optional and written only by
+Personaje when it builds the cast; Reparto only reads and writes them back. `merging(_:)` replaces `lineCount`
+with a newer count instead of keeping the old one, unlike every other field.
+
 Character names are the screenplay cue, uppercase: `CastMember.canonicalName("narrator (V.O.)")`
 is `"NARRATOR"`, and `merging(_:)` matches on that form.
 
 ## Install
 
-Two products, two install paths. There is no Homebrew formula yet — the
-tap's reconcile only re-resolves formulas that already exist, so the first
-formula is created by hand in the tap now that a stable release exists (see
-[AGENTS.md](AGENTS.md#release) for exactly why).
+Two products, three install paths. The `reparto` binary is also on Homebrew
+(`brew install intrusive-memory/tap/reparto`); the tap reconciles the formula
+against the latest stable release on a 6-hour cron, so it can lag a fresh
+release by a few hours (see [AGENTS.md](AGENTS.md#release) for how the formula
+is maintained).
 
 ### The library, via Swift Package Manager
 
 ```swift
-.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", from: "0.3.0")
+.package(url: "https://github.com/intrusive-memory/SwiftReparto.git", from: "0.4.0")
 ```
 
-(The git tag is `v0.3.0`. SwiftPM takes the unprefixed semver and resolves
+(The git tag is `v0.4.0`. SwiftPM takes the unprefixed semver and resolves
 the `v`-prefixed tag itself.)
 
 Then depend on the `SwiftReparto` product in the target that reads or writes
@@ -107,7 +115,7 @@ carries no CLI dependency.
 ### The `reparto` binary, via `gh release download`
 
 ```sh
-gh release download v0.1.0 \
+gh release download v0.4.0 \
   --repo intrusive-memory/SwiftReparto \
   --pattern 'reparto-*-arm64-macos.tar.gz'
 tar xzf reparto-*-arm64-macos.tar.gz
@@ -182,7 +190,7 @@ with the same name.
 - [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIREMENTS.md) — schema, API, invariants, acceptance criteria.
 - [AGENTS.md](AGENTS.md) — standing rules: the leaf invariant, the one-writer
   rule, the schema version policy, the YAML dialect, the CLI's exit codes,
-  and why there's no Homebrew formula yet.
+  and how the Homebrew formula is maintained.
 
 ## License
 

@@ -42,11 +42,11 @@ import Foundation
 ///
 /// So the contract is:
 ///
-/// - ``encode(to:)`` writes exactly three keys, in this order: `type`,
-///   `schemaVersion`, `cast`. That order is fixed here, at the `encode(to:)`
+/// - ``encode(to:)`` writes these keys, in this order: `type`,
+///   `schemaVersion`, `castVersion` (only when set, RQ-27), `cast`. That order is fixed here, at the `encode(to:)`
 ///   layer, which is what lets the YAML encoder run with key sorting off and
 ///   still produce byte-stable output for RQ-11's SHA-256 gate (D-12).
-/// - ``init(from:)`` reads those same three keys and sets ``body`` to the empty
+/// - ``init(from:)`` reads those same keys and sets ``body`` to the empty
 ///   string. **The decoder does not know where the body is and must not
 ///   guess.** Whoever split the front matter off owns the body: it assigns the
 ///   byte-exact remainder after decoding.
@@ -116,6 +116,20 @@ public struct CastDocument: Codable, Sendable, Equatable {
     CastSchemaVersion.isUnversioned(schemaVersion)
   }
 
+  /// The project repository's commit count when the cast was built (RQ-27):
+  /// `git rev-list --count HEAD` at the commit the cast list was read from.
+  ///
+  /// Not a format version — ``schemaVersion`` is that. Only the Personaje app
+  /// writes it, when it builds or rebuilds `CAST.md`; this library never
+  /// computes or changes it, and merging members leaves it alone. It is read
+  /// and written back exactly as found.
+  ///
+  /// `nil` means the file was not built by the app (hand-written, or written
+  /// before this field existed) and emits no `castVersion` key. A value that
+  /// is not a non-negative integer fails the parse with
+  /// ``CastParseError/invalidCastVersion(value:)``.
+  public var castVersion: Int?
+
   /// Create a cast document.
   ///
   /// - Parameters:
@@ -125,14 +139,18 @@ public struct CastDocument: Codable, Sendable, Equatable {
   ///     ``CastSchemaVersion/current``, because a document constructed in
   ///     memory is being written by this build. Pass
   ///     ``CastSchemaVersion/unversioned`` to model a legacy document.
+  ///   - castVersion: The project's commit count when the cast was built
+  ///     (RQ-27). Defaults to `nil`.
   public init(
     cast: [CastMember] = [],
     body: String = "",
-    schemaVersion: Int = CastSchemaVersion.current
+    schemaVersion: Int = CastSchemaVersion.current,
+    castVersion: Int? = nil
   ) {
     self.cast = cast
     self.body = body
     self.schemaVersion = schemaVersion
+    self.castVersion = castVersion
   }
 
   // MARK: - Codable
@@ -140,7 +158,8 @@ public struct CastDocument: Codable, Sendable, Equatable {
   /// The front-matter keys, in emission order.
   ///
   /// Declaration order is the emission order and is load-bearing: `type`,
-  /// `schemaVersion`, `cast`. Lexicographic sorting would yield `cast`,
+  /// `schemaVersion`, `castVersion` (RQ-27, beside the other document-level
+  /// scalars and written only when set), `cast`. Lexicographic sorting would yield `cast`,
   /// `schemaVersion`, `type`, which is why the YAML layer must not sort keys
   /// (D-12).
   ///
@@ -149,6 +168,7 @@ public struct CastDocument: Codable, Sendable, Equatable {
   enum CodingKeys: String, CodingKey {
     case type
     case schemaVersion
+    case castVersion
     case cast
   }
 
@@ -163,8 +183,10 @@ public struct CastDocument: Codable, Sendable, Equatable {
   ///
   /// - Throws: ``CastParseError/unsupportedSchemaVersion(found:supported:)``,
   ///   ``CastParseError/missingTypeCast``, ``CastParseError/missingCastKey``,
-  ///   ``CastParseError/missingCharacter(index:)``, or
-  ///   ``CastParseError/invalidRole(index:value:)``. Any other failure
+  ///   ``CastParseError/invalidCastVersion(value:)``,
+  ///   ``CastParseError/missingCharacter(index:)``,
+  ///   ``CastParseError/invalidRole(index:value:)``, or
+  ///   ``CastParseError/invalidLineCount(index:value:)``. Any other failure
   ///   surfaces as the underlying `DecodingError`. A caller that maps decode
   ///   failures onto ``CastParseError/invalidYAML(_:)`` must let
   ///   ``CastParseError`` values through first — they are more specific than
@@ -187,6 +209,17 @@ public struct CastDocument: Codable, Sendable, Equatable {
     let declaredType = try container.decodeIfPresent(String.self, forKey: .type)
     guard declaredType == Self.documentType else {
       throw CastParseError.missingTypeCast
+    }
+
+    // RQ-27: optional; carried as found. Strict about its shape so a typo is
+    // caught at read time rather than silently dropped on the next write.
+    switch try decodeNonNegativeInteger(from: container, forKey: .castVersion) {
+    case .absent:
+      castVersion = nil
+    case .value(let version):
+      castVersion = version
+    case .invalid(let rawValue):
+      throw CastParseError.invalidCastVersion(value: rawValue)
     }
 
     // 3. RQ-1: a `cast:` key must be present. Present-and-empty is a valid
@@ -219,7 +252,8 @@ public struct CastDocument: Codable, Sendable, Equatable {
 
   /// Encodes the front matter of a cast document.
   ///
-  /// Writes `type`, ``CastSchemaVersion/current``, and `cast`, in that order,
+  /// Writes `type`, ``CastSchemaVersion/current``, ``castVersion`` when set,
+  /// and `cast`, in that order,
   /// and writes ``body`` nowhere. The version stamped is always the current one
   /// regardless of what ``schemaVersion`` holds (D-5) — that is what normalizes
   /// a legacy document on its first write.
@@ -227,10 +261,12 @@ public struct CastDocument: Codable, Sendable, Equatable {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(Self.documentType, forKey: .type)
     try container.encode(CastSchemaVersion.current, forKey: .schemaVersion)
+    try container.encodeIfPresent(castVersion, forKey: .castVersion)
     try container.encode(cast, forKey: .cast)
   }
 
-  /// Recognizes a missing `character` field or an unknown `role` and reports
+  /// Recognizes a missing `character` field, an unknown `role`, or an invalid
+  /// `lineCount` and reports
   /// which member it was. See `translateMemberDecodingError(_:atMemberIndex:)`.
   private static func translate(_ error: DecodingError, atMemberIndex index: Int) -> Error {
     translateMemberDecodingError(error, atMemberIndex: index)
