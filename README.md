@@ -1,6 +1,6 @@
 ---
 type: doc
-updated: 2026-10-22
+updated: 2026-11-15
 status: stable
 ---
 
@@ -61,6 +61,7 @@ whole point.
 ---
 type: cast
 schemaVersion: 1
+castVersion: 57
 cast:
   - character: NARRATOR
     displayName: The Narrator
@@ -69,6 +70,7 @@ cast:
     voices:
       voxalta: [voices/NARRATOR.vox]
     manifest: characters/NARRATOR.dossier/manifest.json
+    lineCount: 40
 ---
 ```
 
@@ -80,6 +82,11 @@ warns about it). `voices` is written by SwiftEchada. No consumer writes the file
 `displayName` is an optional presentation name for UI; the canonical name stays `character`.
 Consumers treat an empty or whitespace-only value as absent. Personaje, the only `CAST.md` builder,
 doesn't write it yet.
+
+`lineCount` is the number of lines the character speaks across the episodes, and `castVersion` is
+the project repository's commit count when the cast was built. Both are optional and written only by
+Personaje when it builds the cast; Reparto only reads and writes them back. `merging(_:)` replaces `lineCount`
+with a newer count instead of keeping the old one, unlike every other field.
 
 Character names are the screenplay cue, uppercase: `CastMember.canonicalName("narrator (V.O.)")`
 is `"NARRATOR"`, and `merging(_:)` matches on that form.

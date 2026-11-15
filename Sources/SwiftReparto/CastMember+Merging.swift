@@ -91,7 +91,7 @@ extension Array where Element == CastMember {
   /// ## What happens on a match — gap-filling, not a no-op
   ///
   /// The receiver's member is returned with every field it already has
-  /// **untouched**: an existing `role`, `voicePrompt`, `bio`, `actor`,
+  /// **untouched** (except `lineCount`; see below): an existing `role`, `voicePrompt`, `bio`, `actor`,
   /// `gender`, `language`, `manifest`, a `voices` entry for a provider it already carries, or any
   /// other `extraKeys` entry is never overwritten by the discovered version,
   /// no matter what that version holds.
@@ -113,6 +113,15 @@ extension Array where Element == CastMember {
   /// `PROJECT.md` happens to carry gains that field instead of staying
   /// permanently blank. It does not weaken the no-overwrite guarantee in any
   /// way — a field the receiver already set is never revisited.
+  ///
+  /// ## The one exception: `lineCount` is replaced (RQ-26)
+  ///
+  /// `lineCount` is derived from the episodes, not written by a person, so a
+  /// non-`nil` `discovered.lineCount` **replaces** the receiver's value, whether
+  /// the receiver had one or not. That is how each discovery run refreshes the
+  /// count. A `nil` `discovered.lineCount` keeps the receiver's value, so a
+  /// merge from a source with no counts (`reparto import`, `PROJECT.md`) never
+  /// erases one. Every other field stays fill-if-nil.
   ///
   /// The stored `character` on a matched result is always the receiver's,
   /// byte for byte. It is never replaced by `discovered`'s spelling and never
@@ -163,7 +172,8 @@ extension Array where Element == CastMember {
 extension CastMember {
 
   /// Returns a copy of `self` with any field it lacks filled in from
-  /// `discovered`, never overwriting a field `self` already has.
+  /// `discovered`, never overwriting a field `self` already has — except
+  /// `lineCount`, which a non-`nil` `discovered` value replaces (RQ-26).
   ///
   /// This is the per-member policy `merging(_:)` applies on a match. `self`'s
   /// `character` is always preserved verbatim — this function never reads
@@ -193,6 +203,12 @@ extension CastMember {
     }
     if merged.voicePrompt == nil {
       merged.voicePrompt = discovered.voicePrompt
+    }
+
+    // RQ-26: replace, not fill. The count is derived from the episodes, so the
+    // incoming value wins whenever it has one; a nil incoming value keeps ours.
+    if let count = discovered.lineCount {
+      merged.lineCount = count
     }
 
     // Per-provider gap-fill: a provider the receiver already has is left
