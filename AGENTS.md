@@ -21,8 +21,10 @@ no network. See [REQUIREMENTS.md](docs/complete/operation-troupe-marshal/REQUIRE
 
 ## Current version
 
-**Version string `0.3.0-dev`** — development after the `v0.3.0` release, which added the optional
-per-member `displayName` (RQ-28), on top of `v0.2.1` (`canonicalName` strips
+**Version string `0.4.0`** — the `v0.4.0` release, which added the optional
+per-member `lineCount` (RQ-26) and the front-matter `castVersion` (RQ-27), with
+two new `CastParseError` cases (`invalidLineCount`, `invalidCastVersion`). It
+follows `v0.3.0` (optional per-member `displayName`, RQ-28) and `v0.2.1` (`canonicalName` strips
 Fountain's `^`) and the `v0.2.0` character-record release (RQ-19..RQ-25; see [REQUIREMENTS.md](REQUIREMENTS.md)).
 
 The two spellings are deliberate and both are load-bearing:
@@ -31,9 +33,9 @@ The two spellings are deliberate and both are load-bearing:
   (SwiftEscribo `v0.1.0`…`v0.3.0`, SwiftProyecto `v4.8.1`). Use it for
   `gh release download` and anything else that names a git ref.
 - **`Sources/RepartoCLICore/RepartoVersion.swift`'s `RepartoVersion.current`
-  does not** — it is `"0.3.0"`. `release.yml` derives the tarball name
+  does not** — it is `"0.4.0"`. `release.yml` derives the tarball name
   from `VERSION="${TAG#v}"`, so the constant, `reparto --version`, and
-  `reparto-0.3.0-arm64-macos.tar.gz` all agree character-for-character,
+  `reparto-0.4.0-arm64-macos.tar.gz` all agree character-for-character,
   and SwiftPM's `exact:` requirement takes that same unprefixed string.
 
 The constant and this section must always name the same release —
